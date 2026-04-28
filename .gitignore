@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.DotSettings.user
+
+# Dalamud packager output
+*.zip
+publish/

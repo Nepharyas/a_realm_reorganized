@@ -1,0 +1,12 @@
+{
+    "Name": "A Realm Reorganized",
+    "Author": "Nepharyas",
+    "Punchline": "Auto-cleans your Glamour Dresser using the 7.5 Armoire.",
+    "Description": "Scans the Glamour Dresser for items that can now be stored in the Armoire (per patch 7.5), and detects partial sets that can be regrouped. Runs only when you press the button.",
+    "ApplicableVersion": "any",
+    "Tags": ["glamour", "armoire", "dresser", "qol"],
+    "CategoryTags": ["utility"],
+    "AcceptsFeedback": true,
+    "IconUrl": "",
+    "RepoUrl": ""
+}

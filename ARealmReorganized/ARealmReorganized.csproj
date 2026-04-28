@@ -1,0 +1,11 @@
+<Project Sdk="Dalamud.NET.Sdk/13.0.0">
+
+  <PropertyGroup>
+    <Authors>Nepharyas</Authors>
+    <Version>0.0.1</Version>
+    <Description>Auto-cleans the Glamour Dresser by moving 7.5 armoire-eligible items and grouping set pieces.</Description>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>
