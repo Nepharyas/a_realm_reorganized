@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ARealmReorganized", "ARealmReorganized\ARealmReorganized.csproj", "{B1E5B6F0-1A2B-4C3D-9E4F-5A6B7C8D9E10}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ARealmReorganized", "ARealmReorganized\ARealmReorganized.csproj", "{571C23A2-3268-4939-A171-0D998F69A502}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -8,9 +8,9 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B1E5B6F0-1A2B-4C3D-9E4F-5A6B7C8D9E10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B1E5B6F0-1A2B-4C3D-9E4F-5A6B7C8D9E10}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B1E5B6F0-1A2B-4C3D-9E4F-5A6B7C8D9E10}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B1E5B6F0-1A2B-4C3D-9E4F-5A6B7C8D9E10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{571C23A2-3268-4939-A171-0D998F69A502}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{571C23A2-3268-4939-A171-0D998F69A502}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{571C23A2-3268-4939-A171-0D998F69A502}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{571C23A2-3268-4939-A171-0D998F69A502}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
