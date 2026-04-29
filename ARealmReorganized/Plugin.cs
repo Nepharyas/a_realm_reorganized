@@ -8,9 +8,13 @@ public sealed class Plugin : IDalamudPlugin
     public const string Name = "A Realm Reorganized";
     private const string MainCommand = "/arr";
 
+    public Configuration Config { get; }
+
     public Plugin(IDalamudPluginInterface pi)
     {
         pi.Create<Service>();
+
+        Config = Service.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
         Service.CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
