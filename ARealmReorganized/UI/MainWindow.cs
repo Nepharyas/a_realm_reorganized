@@ -28,7 +28,7 @@ public sealed class MainWindow : Window, IDisposable
     public override void Draw()
     {
         ImGui.TextWrapped(
-            "Scan your Glamour Dresser for items that can be moved to the Armoire (patch 7.5+) " +
+            "Scan your Glamour Dresser for items that can be moved to the Armoire " +
             "and detect partial sets that can be regrouped. Nothing happens until you press Apply.");
         ImGui.Separator();
 
@@ -54,7 +54,7 @@ public sealed class MainWindow : Window, IDisposable
         else
         {
             ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
-                "Game services not yet wired up — Armoire/Dresser readers are stubs until Dalamud ships 7.5 support.");
+                "Armoire/Dresser readers are stubs. Real game integration coming once ClientStructs settles on 7.5.");
         }
         ImGui.TextDisabled($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
