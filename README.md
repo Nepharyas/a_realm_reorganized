@@ -32,6 +32,10 @@ dotnet build
 
 The output ends up in `ARealmReorganized\bin\...`. Add that folder to your Dalamud dev plugin paths (`/xlsettings → Experimental → Dev Plugin Locations`), then load it from `/xlplugins → Dev Tools`.
 
+## Tips
+
+If this plugin saves you time, you can [tip me on Ko-fi](https://ko-fi.com/nepharyas). No obligation — feedback is welcome too.
+
 ## License
 
 TBD.
