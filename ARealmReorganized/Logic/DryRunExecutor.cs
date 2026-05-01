@@ -1,3 +1,4 @@
+using ARealmReorganized.Models;
 using Lumina.Excel.Sheets;
 
 namespace ARealmReorganized.Logic;
@@ -8,6 +9,13 @@ public sealed class DryRunExecutor : IActionExecutor
     {
         var name = ResolveName(itemId);
         Service.Log.Information($"[dry-run] would move {name} (#{itemId}) to armoire");
+        return ActionResult.Success;
+    }
+
+    public ActionResult CompressSet(SetGroup set)
+    {
+        Service.Log.Information(
+            $"[dry-run] would compress set '{set.Name}' ({set.Pieces.Count}/{set.TotalPieces} pieces)");
         return ActionResult.Success;
     }
 
