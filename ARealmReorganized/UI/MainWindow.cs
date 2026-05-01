@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
@@ -16,12 +17,14 @@ public sealed class MainWindow : Window, IDisposable
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
     private readonly Dictionary<uint, string> itemNames = new();
+    private readonly HashSet<uint> selectedStorableIds = new();
+    private readonly HashSet<uint> selectedSetIds = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
     {
         this.plugin = plugin;
-        Size = new Vector2(720, 520);
+        Size = new Vector2(720, 560);
         SizeCondition = ImGuiCond.FirstUseEver;
     }
 
@@ -36,111 +39,189 @@ public sealed class MainWindow : Window, IDisposable
 
         DrawServiceStatus();
         ImGui.Spacing();
-
-        DrawOptions();
-        ImGui.Spacing();
-
-        DrawActions();
+        DrawScanRow();
         ImGui.Separator();
 
-        DrawResults();
+        var footerHeight = ImGui.GetFrameHeightWithSpacing() + ImGui.GetStyle().ItemSpacing.Y;
+        if (ImGui.BeginChild("##body", new Vector2(0, -footerHeight)))
+        {
+            if (!hasScanned)
+            {
+                ImGui.TextDisabled("Press Scan to populate results.");
+            }
+            else if (ImGui.BeginTabBar("##arrtabs"))
+            {
+                if (ImGui.BeginTabItem($"Move to Armoire ({storableCandidates.Count})"))
+                {
+                    DrawArmoireTab();
+                    ImGui.EndTabItem();
+                }
+                if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})"))
+                {
+                    DrawCompressTab();
+                    ImGui.EndTabItem();
+                }
+                ImGui.EndTabBar();
+            }
+        }
+        ImGui.EndChild();
+
+        DrawFooter();
+    }
+
+    private void DrawFooter()
+    {
+        ImGui.Separator();
+        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1f, 0.37f, 0.36f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(1f, 0.5f, 0.48f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.85f, 0.3f, 0.3f, 1f));
+        if (ImGui.SmallButton("♥ Support on Ko-fi"))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://ko-fi.com/nepharyas",
+                UseShellExecute = true,
+            });
+        }
+        ImGui.PopStyleColor(3);
     }
 
     private void DrawServiceStatus()
     {
-        var ok = plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable;
-        if (ok)
-        {
+        if (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable)
             ImGui.TextColored(new Vector4(0.4f, 1f, 0.4f, 1f), "Game services connected.");
-        }
         else
-        {
             ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
                 "Armoire/Dresser readers are stubs. Real game integration coming once ClientStructs settles on 7.5.");
-        }
         ImGui.TextDisabled($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
 
-    private void DrawOptions()
+    private void DrawScanRow()
     {
-        var cfg = plugin.Config;
-        var changed = false;
-
-        var dryRun = cfg.DryRun;
-        if (ImGui.Checkbox("Dry run (preview only — never moves items)", ref dryRun))
-        { cfg.DryRun = dryRun; changed = true; }
-
-        var moveRelics = cfg.MoveJobRelics;
-        if (ImGui.Checkbox("Move job relics to Armoire", ref moveRelics))
-        { cfg.MoveJobRelics = moveRelics; changed = true; }
-
-        var moveDungeon = cfg.MoveDungeonGear;
-        if (ImGui.Checkbox("Move dungeon gear to Armoire", ref moveDungeon))
-        { cfg.MoveDungeonGear = moveDungeon; changed = true; }
-
-        var regroup = cfg.RegroupSets;
-        if (ImGui.Checkbox("Detect & regroup item-series sets", ref regroup))
-        { cfg.RegroupSets = regroup; changed = true; }
-
-        var minPieces = cfg.MinPiecesForSet;
-        if (ImGui.SliderInt("Min pieces to count as a set", ref minPieces, 2, 5))
-        { cfg.MinPiecesForSet = minPieces; changed = true; }
-
-        if (changed) cfg.Save();
-    }
-
-    private void DrawActions()
-    {
-        if (ImGui.Button("Scan"))
-        {
-            RunScan();
-        }
+        if (ImGui.Button("Scan")) RunScan();
         ImGui.SameLine();
 
-        var canApply = hasScanned && (plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable));
-        ImGui.BeginDisabled(!canApply);
-        if (ImGui.Button("Apply selected actions"))
+        var dryRun = plugin.Config.DryRun;
+        if (ImGui.Checkbox("Dry run (preview only — never moves items)", ref dryRun))
         {
-            foreach (var id in storableCandidates)
-                plugin.Executor.MoveToArmoire(id);
+            plugin.Config.DryRun = dryRun;
+            plugin.Config.Save();
         }
-        ImGui.EndDisabled();
     }
 
-    private void DrawResults()
+    private void DrawArmoireTab()
     {
-        if (!hasScanned)
+        if (storableCandidates.Count == 0)
         {
-            ImGui.TextDisabled("Press Scan to populate results.");
+            ImGui.TextDisabled("Nothing in your dresser is currently armoire-eligible.");
             return;
         }
 
-        if (ImGui.CollapsingHeader($"Storable in Armoire ({storableCandidates.Count})", ImGuiTreeNodeFlags.DefaultOpen))
+        if (ImGui.Button("Select all eligible"))
+            foreach (var id in storableCandidates) selectedStorableIds.Add(id);
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##armoire")) selectedStorableIds.Clear();
+
+        ImGui.Spacing();
+
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable);
+        canApply = canApply && selectedStorableIds.Count > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: move {selectedStorableIds.Count} items to Armoire"))
         {
-            if (storableCandidates.Count == 0)
-                ImGui.TextDisabled("Nothing in your dresser is currently armoire-eligible.");
-            else
-                foreach (var id in storableCandidates)
-                    ImGui.BulletText(itemNames.GetValueOrDefault(id, $"Item #{id}"));
+            foreach (var id in selectedStorableIds)
+                plugin.Executor.MoveToArmoire(id);
+        }
+        ImGui.EndDisabled();
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##armoirelist", Vector2.Zero))
+        {
+            foreach (var id in storableCandidates)
+            {
+                var checkedFlag = selectedStorableIds.Contains(id);
+                var name = itemNames.GetValueOrDefault(id, $"Item #{id}");
+                if (ImGui.Checkbox($"{name}##s{id}", ref checkedFlag))
+                {
+                    if (checkedFlag) selectedStorableIds.Add(id);
+                    else selectedStorableIds.Remove(id);
+                }
+            }
+        }
+        ImGui.EndChild();
+    }
+
+    private void DrawCompressTab()
+    {
+        var completeSets = setGroups.Where(g => g.Pieces.Count == g.TotalPieces).ToList();
+        var partialSets = setGroups.Where(g => g.Pieces.Count < g.TotalPieces).ToList();
+
+        if (completeSets.Count == 0 && partialSets.Count == 0)
+        {
+            ImGui.TextDisabled("No detected sets. Add gear to your dresser and re-scan.");
+            return;
         }
 
-        if (ImGui.CollapsingHeader($"Detected sets ({setGroups.Count})", ImGuiTreeNodeFlags.DefaultOpen))
+        ImGui.BeginDisabled(completeSets.Count == 0);
+        if (ImGui.Button("Select all complete sets"))
+            foreach (var s in completeSets) selectedSetIds.Add(s.SeriesId);
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##compress")) selectedSetIds.Clear();
+        ImGui.EndDisabled();
+
+        ImGui.Spacing();
+
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable);
+        canApply = canApply && selectedSetIds.Count > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: compress {selectedSetIds.Count} sets"))
         {
-            if (setGroups.Count == 0)
-                ImGui.TextDisabled("No multi-piece sets detected.");
-            else
-                foreach (var g in setGroups)
-                    ImGui.BulletText($"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces");
+            foreach (var s in completeSets)
+                if (selectedSetIds.Contains(s.SeriesId)) plugin.Executor.CompressSet(s);
         }
+        ImGui.EndDisabled();
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##setlist", Vector2.Zero))
+        {
+            if (completeSets.Count > 0)
+            {
+                ImGui.TextDisabled($"Complete sets ({completeSets.Count}):");
+                foreach (var g in completeSets)
+                {
+                    var checkedFlag = selectedSetIds.Contains(g.SeriesId);
+                    var label = $"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces##c{g.SeriesId}";
+                    if (ImGui.Checkbox(label, ref checkedFlag))
+                    {
+                        if (checkedFlag) selectedSetIds.Add(g.SeriesId);
+                        else selectedSetIds.Remove(g.SeriesId);
+                    }
+                }
+            }
+
+            if (partialSets.Count > 0)
+            {
+                if (completeSets.Count > 0) ImGui.Spacing();
+                ImGui.TextDisabled($"Partial sets ({partialSets.Count}) — finish to compress:");
+                ImGui.BeginDisabled(true);
+                foreach (var g in partialSets)
+                {
+                    var dummy = false;
+                    ImGui.Checkbox(
+                        $"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces##p{g.SeriesId}",
+                        ref dummy);
+                }
+                ImGui.EndDisabled();
+            }
+        }
+        ImGui.EndChild();
     }
 
     private void RunScan()
     {
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
-        setGroups = plugin.Config.RegroupSets
-            ? SetCompression.GroupBySeries(snapshot, plugin.Config.MinPiecesForSet)
-            : Array.Empty<SetGroup>();
+        setGroups = SetCompression.GroupBySeries(snapshot, 2);
 
         itemNames.Clear();
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
@@ -153,6 +234,8 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
 
+        selectedStorableIds.Clear();
+        selectedSetIds.Clear();
         hasScanned = true;
         Service.Log.Information(
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, {setGroups.Count} set groups.");
