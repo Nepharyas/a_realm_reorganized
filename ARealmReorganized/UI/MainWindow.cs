@@ -5,6 +5,7 @@ using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
+using Lumina.Excel.Sheets;
 
 namespace ARealmReorganized.UI;
 
@@ -14,6 +15,7 @@ public sealed class MainWindow : Window, IDisposable
 
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
+    private readonly Dictionary<uint, string> itemNames = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
@@ -95,11 +97,12 @@ public sealed class MainWindow : Window, IDisposable
         }
         ImGui.SameLine();
 
-        var canApply = hasScanned && !plugin.Config.DryRun && plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable;
+        var canApply = hasScanned && (plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable));
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button("Apply selected actions"))
         {
-            // TODO: queue the executor once 7.5 game services are available.
+            foreach (var id in storableCandidates)
+                plugin.Executor.MoveToArmoire(id);
         }
         ImGui.EndDisabled();
     }
@@ -118,7 +121,7 @@ public sealed class MainWindow : Window, IDisposable
                 ImGui.TextDisabled("Nothing in your dresser is currently armoire-eligible.");
             else
                 foreach (var id in storableCandidates)
-                    ImGui.BulletText($"Item #{id}");
+                    ImGui.BulletText(itemNames.GetValueOrDefault(id, $"Item #{id}"));
         }
 
         if (ImGui.CollapsingHeader($"Detected sets ({setGroups.Count})", ImGuiTreeNodeFlags.DefaultOpen))
@@ -138,6 +141,18 @@ public sealed class MainWindow : Window, IDisposable
         setGroups = plugin.Config.RegroupSets
             ? SetCompression.GroupBySeries(snapshot, plugin.Config.MinPiecesForSet)
             : Array.Empty<SetGroup>();
+
+        itemNames.Clear();
+        var itemSheet = Service.DataManager.GetExcelSheet<Item>();
+        if (itemSheet is not null)
+        {
+            foreach (var id in storableCandidates)
+            {
+                var row = itemSheet.GetRowOrDefault(id);
+                if (row is not null) itemNames[id] = row.Value.Name.ExtractText();
+            }
+        }
+
         hasScanned = true;
         Service.Log.Information(
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, {setGroups.Count} set groups.");

@@ -19,6 +19,7 @@ public sealed class Plugin : IDalamudPlugin
     public ICabinetService Cabinet { get; }
     public IGlamourDresserService Dresser { get; }
     public ArmoireEligibility Eligibility { get; }
+    public IActionExecutor Executor { get; }
 
     public Plugin(IDalamudPluginInterface pi)
     {
@@ -26,9 +27,10 @@ public sealed class Plugin : IDalamudPlugin
 
         Config = Service.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        Cabinet = new StubCabinetService();
-        Dresser = new StubGlamourDresserService();
         Eligibility = new ArmoireEligibility();
+        Cabinet = new StubCabinetService(Eligibility);
+        Dresser = new StubGlamourDresserService();
+        Executor = new DryRunExecutor();
 
         MainWindow = new MainWindow(this);
         Windows.AddWindow(MainWindow);
