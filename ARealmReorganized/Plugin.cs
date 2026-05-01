@@ -29,7 +29,7 @@ public sealed class Plugin : IDalamudPlugin
 
         Eligibility = new ArmoireEligibility();
         Cabinet = new StubCabinetService(Eligibility);
-        Dresser = new StubGlamourDresserService();
+        Dresser = new GlamourDresserService();
         Executor = new DryRunExecutor();
 
         MainWindow = new MainWindow(this);
