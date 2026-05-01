@@ -7,4 +7,5 @@ public sealed class SetGroup
     public required uint SeriesId { get; init; }
     public required string Name { get; init; }
     public required List<DresserItem> Pieces { get; init; }
+    public required int TotalPieces { get; init; }
 }

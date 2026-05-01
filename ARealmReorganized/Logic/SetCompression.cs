@@ -33,9 +33,11 @@ public static class SetCompression
             };
 
             var matched = new List<DresserItem>();
+            int totalSlots = 0;
             foreach (var slotId in slotIds)
             {
                 if (slotId == 0) continue;
+                totalSlots++;
                 if (dresserByItemId.TryGetValue(slotId, out var di)) matched.Add(di);
             }
 
@@ -54,10 +56,18 @@ public static class SetCompression
                 SeriesId = setRow.RowId,
                 Name = name,
                 Pieces = matched,
+                TotalPieces = totalSlots,
             });
         }
 
-        result.Sort((a, b) => b.Pieces.Count.CompareTo(a.Pieces.Count));
+        result.Sort((a, b) =>
+        {
+            var ratioA = (double)a.Pieces.Count / a.TotalPieces;
+            var ratioB = (double)b.Pieces.Count / b.TotalPieces;
+            var byRatio = ratioB.CompareTo(ratioA);
+            if (byRatio != 0) return byRatio;
+            return b.TotalPieces.CompareTo(a.TotalPieces);
+        });
         return result;
     }
 }

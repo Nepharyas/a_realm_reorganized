@@ -130,7 +130,7 @@ public sealed class MainWindow : Window, IDisposable
                 ImGui.TextDisabled("No multi-piece sets detected.");
             else
                 foreach (var g in setGroups)
-                    ImGui.BulletText($"{g.Name} — {g.Pieces.Count} pieces");
+                    ImGui.BulletText($"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces");
         }
     }
 
