@@ -11,43 +11,49 @@ public static class SetCompression
         int minPiecesForSet)
     {
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
-        var seriesSheet = Service.DataManager.GetExcelSheet<ItemSeries>();
+        var setSheet = Service.DataManager.GetExcelSheet<MirageStoreSetItem>();
         var result = new List<SetGroup>();
-        if (itemSheet is null) return result;
+        if (itemSheet is null || setSheet is null) return result;
 
-        var bySeries = new Dictionary<uint, List<DresserItem>>();
+        var dresserByItemId = new Dictionary<uint, DresserItem>();
         foreach (var di in items)
         {
-            var row = itemSheet.GetRowOrDefault(di.ItemId);
-            if (row is null) continue;
-            var seriesId = row.Value.ItemSeries.RowId;
-            if (seriesId == 0) continue;
-
-            if (!bySeries.TryGetValue(seriesId, out var list))
-                bySeries[seriesId] = list = new List<DresserItem>();
-            list.Add(di);
+            if (!dresserByItemId.ContainsKey(di.ItemId))
+                dresserByItemId[di.ItemId] = di;
         }
 
-        foreach (var (seriesId, pieces) in bySeries)
+        foreach (var setRow in setSheet)
         {
-            if (pieces.Count < minPiecesForSet) continue;
-
-            var name = $"Series {seriesId}";
-            if (seriesSheet is not null)
+            var slotIds = new[]
             {
-                var s = seriesSheet.GetRowOrDefault(seriesId);
-                if (s is not null)
-                {
-                    var text = s.Value.Name.ExtractText();
-                    if (!string.IsNullOrWhiteSpace(text)) name = text;
-                }
+                setRow.MainHand.RowId, setRow.OffHand.RowId, setRow.Head.RowId,
+                setRow.Body.RowId, setRow.Hands.RowId, setRow.Legs.RowId,
+                setRow.Feet.RowId, setRow.Earrings.RowId, setRow.Necklace.RowId,
+                setRow.Bracelets.RowId, setRow.Ring.RowId,
+            };
+
+            var matched = new List<DresserItem>();
+            foreach (var slotId in slotIds)
+            {
+                if (slotId == 0) continue;
+                if (dresserByItemId.TryGetValue(slotId, out var di)) matched.Add(di);
+            }
+
+            if (matched.Count < minPiecesForSet) continue;
+
+            var name = $"Set {setRow.RowId}";
+            var setItemRow = itemSheet.GetRowOrDefault(setRow.RowId);
+            if (setItemRow is not null)
+            {
+                var text = setItemRow.Value.Name.ExtractText();
+                if (!string.IsNullOrWhiteSpace(text)) name = text;
             }
 
             result.Add(new SetGroup
             {
-                SeriesId = seriesId,
+                SeriesId = setRow.RowId,
                 Name = name,
-                Pieces = pieces,
+                Pieces = matched,
             });
         }
 
