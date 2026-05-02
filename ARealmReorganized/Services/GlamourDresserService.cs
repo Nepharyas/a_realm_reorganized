@@ -2,31 +2,115 @@ using System;
 using System.Collections.Generic;
 using ARealmReorganized.Models;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace ARealmReorganized.Services;
 
 internal sealed unsafe class GlamourDresserService : IGlamourDresserService
 {
-    public bool IsAvailable => MirageManager.Instance() != null;
+    private readonly Plugin plugin;
+
+    public GlamourDresserService(Plugin plugin)
+    {
+        this.plugin = plugin;
+    }
+
+    public bool IsAvailable
+    {
+        get
+        {
+            if (HasLiveData()) return true;
+            return plugin.Config.CachedDresser.Slots.Count > 0;
+        }
+    }
+
+    public bool IsActivatable
+    {
+        get
+        {
+            var module = AgentModule.Instance();
+            if (module == null) return false;
+            var agent = (AgentMiragePrismPrismBox*)module->GetAgentByInternalId(AgentId.MiragePrismPrismBox);
+            return agent != null && agent->IsActivatable();
+        }
+    }
 
     public IReadOnlyList<DresserItem> Snapshot()
     {
+        if (HasLiveData()) return ReadLive();
+        return ReadFromCache();
+    }
+
+    public bool Remove(DresserItem item)
+    {
+        var manager = MirageManager.Instance();
+        if (manager == null) return false;
+        manager->RestorePrismBoxItem(item.SlotIndex);
+        return true;
+    }
+
+    private DateTime lastCheck = DateTime.MinValue;
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
+
+    public void RefreshCacheIfLive()
+    {
+        var now = DateTime.UtcNow;
+        if (now - lastCheck < RefreshInterval) return;
+        lastCheck = now;
+
+        if (!HasLiveData()) return;
+        var live = ReadLive();
+        var cache = plugin.Config.CachedDresser;
+        cache.Slots.Clear();
+        foreach (var di in live)
+        {
+            cache.Slots.Add(new CachedDresserSlot
+            {
+                Slot = di.SlotIndex,
+                ItemId = di.ItemId,
+                Stain0 = di.Stain0,
+                Stain1 = di.Stain1,
+            });
+        }
+        cache.RefreshedAt = now;
+        plugin.Config.Save();
+    }
+
+    private static bool HasLiveData()
+    {
+        var manager = MirageManager.Instance();
+        if (manager == null) return false;
+        var ids = manager->PrismBoxItemIds;
+        for (int i = 0; i < ids.Length; i++)
+            if (ids[i] != 0) return true;
+        return false;
+    }
+
+    private static IReadOnlyList<DresserItem> ReadLive()
+    {
         var manager = MirageManager.Instance();
         if (manager == null) return Array.Empty<DresserItem>();
-
         var ids = manager->PrismBoxItemIds;
-        var stain0 = manager->PrismBoxStain0Ids;
-        var stain1 = manager->PrismBoxStain1Ids;
-
+        var s0 = manager->PrismBoxStain0Ids;
+        var s1 = manager->PrismBoxStain1Ids;
         var result = new List<DresserItem>();
         for (int i = 0; i < ids.Length; i++)
         {
-            var itemId = ids[i];
-            if (itemId == 0) continue;
-            result.Add(new DresserItem(itemId, (ushort)i, stain0[i], stain1[i]));
+            if (ids[i] == 0) continue;
+            result.Add(new DresserItem(ids[i], (ushort)i, s0[i], s1[i]));
         }
         return result;
     }
 
-    public bool Remove(DresserItem item) => false;
+    private IReadOnlyList<DresserItem> ReadFromCache()
+    {
+        var slots = plugin.Config.CachedDresser.Slots;
+        var result = new List<DresserItem>(slots.Count);
+        foreach (var s in slots)
+        {
+            if (s.ItemId == 0) continue;
+            result.Add(new DresserItem(s.ItemId, s.Slot, s.Stain0, s.Stain1));
+        }
+        return result;
+    }
 }

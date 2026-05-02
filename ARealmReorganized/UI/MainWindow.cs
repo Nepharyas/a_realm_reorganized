@@ -88,12 +88,26 @@ public sealed class MainWindow : Window, IDisposable
 
     private void DrawServiceStatus()
     {
-        if (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable)
-            ImGui.TextColored(new Vector4(0.4f, 1f, 0.4f, 1f), "Game services connected.");
-        else
-            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
-                "Armoire/Dresser readers are stubs. Real game integration coming once ClientStructs settles on 7.5.");
+        var dresserCache = plugin.Config.CachedDresser;
+        var cabinetCache = plugin.Config.CachedCabinet;
+
+        var dresserMsg = dresserCache.RefreshedAt == DateTime.MinValue
+            ? "dresser: never seen yet"
+            : $"dresser: {Humanize(DateTime.UtcNow - dresserCache.RefreshedAt)} ago ({dresserCache.Slots.Count} items)";
+        var cabinetMsg = cabinetCache.RefreshedAt == DateTime.MinValue
+            ? "armoire: never seen yet"
+            : $"armoire: {Humanize(DateTime.UtcNow - cabinetCache.RefreshedAt)} ago ({cabinetCache.StoredIds.Count} stored)";
+
+        ImGui.TextDisabled($"{dresserMsg}    {cabinetMsg}");
         ImGui.TextDisabled($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
+    }
+
+    private static string Humanize(TimeSpan ts)
+    {
+        if (ts.TotalSeconds < 60) return $"{(int)ts.TotalSeconds}s";
+        if (ts.TotalMinutes < 60) return $"{(int)ts.TotalMinutes}m";
+        if (ts.TotalHours < 24) return $"{(int)ts.TotalHours}h";
+        return $"{(int)ts.TotalDays}d";
     }
 
     private void DrawScanRow()
@@ -124,7 +138,7 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable);
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
         canApply = canApply && selectedStorableIds.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {selectedStorableIds.Count} items to Armoire"))
@@ -171,7 +185,7 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsAvailable);
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
         canApply = canApply && selectedSetIds.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: compress {selectedSetIds.Count} sets"))

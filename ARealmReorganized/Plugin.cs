@@ -4,6 +4,7 @@ using ARealmReorganized.UI;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 
 namespace ARealmReorganized;
 
@@ -28,9 +29,9 @@ public sealed class Plugin : IDalamudPlugin
         Config = Service.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
         Eligibility = new ArmoireEligibility();
-        Cabinet = new StubCabinetService(Eligibility);
-        Dresser = new GlamourDresserService();
-        Executor = new DryRunExecutor();
+        Cabinet = new CabinetService(this, Eligibility);
+        Dresser = new GlamourDresserService(this);
+        Executor = new ActionExecutor(this);
 
         MainWindow = new MainWindow(this);
         Windows.AddWindow(MainWindow);
@@ -43,10 +44,12 @@ public sealed class Plugin : IDalamudPlugin
         Service.PluginInterface.UiBuilder.Draw += Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi += OpenMain;
         Service.PluginInterface.UiBuilder.OpenConfigUi += OpenMain;
+        Service.Framework.Update += OnFrameworkUpdate;
     }
 
     public void Dispose()
     {
+        Service.Framework.Update -= OnFrameworkUpdate;
         Service.PluginInterface.UiBuilder.Draw -= Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi -= OpenMain;
         Service.PluginInterface.UiBuilder.OpenConfigUi -= OpenMain;
@@ -57,4 +60,11 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OpenMain() => MainWindow.IsOpen = true;
     private void OnCommand(string _, string __) => MainWindow.Toggle();
+
+    private void OnFrameworkUpdate(IFramework _)
+    {
+        if (!Service.ClientState.IsLoggedIn) return;
+        Dresser.RefreshCacheIfLive();
+        Cabinet.RefreshCacheIfLive();
+    }
 }
