@@ -12,15 +12,26 @@ public static class DuplicateDetection
         public required IReadOnlyList<DresserItem> ArmoireRedundant { get; init; }
         public required IReadOnlyList<DresserItem> MultipleCopies { get; init; }
 
+        /// <summary>
+        /// Returns a new <see cref="Result"/> with items occupying any of the given dresser slots
+        /// removed. Entries in <see cref="MultipleCopies"/> whose item has only one copy left after
+        /// removal are also dropped, since they are no longer duplicates.
+        /// </summary>
         public Result WithSlotsRemoved(HashSet<ushort> removed)
         {
             if (removed.Count == 0) return this;
-            var keptMultiple = MultipleCopies.Where(d => !removed.Contains(d.SlotIndex)).ToList();
-            var countByItemId = keptMultiple.ToLookup(d => d.ItemId);
+
+            var countByItemId = new Dictionary<uint, int>();
+            foreach (var d in MultipleCopies)
+                if (!removed.Contains(d.SlotIndex))
+                    countByItemId[d.ItemId] = countByItemId.GetValueOrDefault(d.ItemId) + 1;
+
             return new Result
             {
                 ArmoireRedundant = ArmoireRedundant.Where(d => !removed.Contains(d.SlotIndex)).ToList(),
-                MultipleCopies = keptMultiple.Where(d => countByItemId[d.ItemId].Count() >= 2).ToList(),
+                MultipleCopies = MultipleCopies
+                    .Where(d => !removed.Contains(d.SlotIndex) && countByItemId[d.ItemId] >= 2)
+                    .ToList(),
             };
         }
     }

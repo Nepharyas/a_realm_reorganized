@@ -351,16 +351,20 @@ public sealed class MainWindow : Window, IDisposable
                 if (done >= willRemove) break;
                 if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
                 if (plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
+                {
                     removed.Add(d.SlotIndex);
-                done++;
+                    done++;
+                }
             }
             foreach (var d in duplicates.MultipleCopies)
             {
                 if (done >= willRemove) break;
                 if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
                 if (plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
+                {
                     removed.Add(d.SlotIndex);
-                done++;
+                    done++;
+                }
             }
 
             duplicates = duplicates.WithSlotsRemoved(removed);
