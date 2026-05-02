@@ -110,7 +110,8 @@ public sealed class MainWindow : Window, IDisposable
             ? "armoire: never seen yet"
             : $"armoire: {Humanize(DateTime.UtcNow - cabinetCache.RefreshedAt)} ago ({cabinetCache.StoredIds.Count} stored)";
 
-        ImGui.TextDisabled($"{dresserMsg}    {cabinetMsg}");
+        ImGui.TextDisabled(
+            $"{dresserMsg}    {cabinetMsg}    inventory: {InventorySpace.FreeSlots()} free, {InventorySpace.GlamourPrismCount()} prisms");
         ImGui.TextDisabled($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
 
@@ -133,6 +134,21 @@ public sealed class MainWindow : Window, IDisposable
             plugin.Config.DryRun = dryRun;
             plugin.Config.Save();
         }
+
+        if (ImGui.CollapsingHeader("Settings"))
+        {
+            var threshold = plugin.Config.MultiRoundThreshold;
+            ImGui.SetNextItemWidth(150);
+            if (ImGui.SliderInt("Stop multi-round transfer when free inventory drops below", ref threshold, 1, 30))
+            {
+                plugin.Config.MultiRoundThreshold = threshold;
+                plugin.Config.Save();
+            }
+            ImGui.TextDisabled(
+                "When applying a Move or Compress that exceeds your free slots, the plugin will run several rounds " +
+                "(transferring as many as fit, waiting for inventory to clear, then continuing). It pauses when " +
+                "free slots drop below the threshold above to avoid slow trickle transfers.");
+        }
     }
 
     private void DrawArmoireTab()
@@ -150,13 +166,28 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
-        canApply = canApply && selectedStorableIds.Count > 0;
-        ImGui.BeginDisabled(!canApply);
-        if (ImGui.Button($"Apply: move {selectedStorableIds.Count} items to Armoire"))
+        var freeSlots = InventorySpace.FreeSlots();
+        var selected = selectedStorableIds.Count;
+        var willMove = plugin.Config.DryRun ? selected : System.Math.Min(selected, freeSlots);
+
+        if (selected > 0 && !plugin.Config.DryRun && selected > freeSlots)
         {
+            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+                $"Inventory has {freeSlots} free slots — will move {willMove} of {selected} this round. Clear space and re-apply for the rest.");
+        }
+
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        canApply = canApply && willMove > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: move {willMove} items to Armoire"))
+        {
+            var done = 0;
             foreach (var id in selectedStorableIds)
+            {
+                if (done >= willMove) break;
                 plugin.Executor.MoveToArmoire(id);
+                done++;
+            }
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -197,13 +228,39 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
-        canApply = canApply && selectedSetIds.Count > 0;
-        ImGui.BeginDisabled(!canApply);
-        if (ImGui.Button($"Apply: compress {selectedSetIds.Count} sets"))
+        var freeSlots = InventorySpace.FreeSlots();
+        var prisms = InventorySpace.GlamourPrismCount();
+        var selectedSetsList = completeSets.Where(s => selectedSetIds.Contains(s.SeriesId)).ToList();
+
+        var setsToCompress = selectedSetsList;
+        var capReason = string.Empty;
+        if (!plugin.Config.DryRun)
         {
-            foreach (var s in completeSets)
-                if (selectedSetIds.Contains(s.SeriesId)) plugin.Executor.CompressSet(s);
+            setsToCompress = new List<SetGroup>();
+            var slotsUsed = 0;
+            foreach (var s in selectedSetsList)
+            {
+                if (setsToCompress.Count >= prisms) { capReason = "prisms"; break; }
+                if (slotsUsed + s.Pieces.Count > freeSlots) { capReason = "inventory"; break; }
+                slotsUsed += s.Pieces.Count;
+                setsToCompress.Add(s);
+            }
+            if (setsToCompress.Count < selectedSetsList.Count)
+            {
+                var msg = capReason == "prisms"
+                    ? $"You have {prisms} glamour prisms — will compress {setsToCompress.Count} of {selectedSetsList.Count} sets this round. Get more prisms for the rest."
+                    : $"Inventory has {freeSlots} free slots — will compress {setsToCompress.Count} of {selectedSetsList.Count} sets this round. Clear space and re-apply.";
+                ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), msg);
+            }
+        }
+
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        canApply = canApply && setsToCompress.Count > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: compress {setsToCompress.Count} sets"))
+        {
+            foreach (var s in setsToCompress)
+                plugin.Executor.CompressSet(s);
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -268,15 +325,40 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || plugin.Dresser.IsActivatable;
-        canApply = canApply && selectedDuplicateSlots.Count > 0;
-        ImGui.BeginDisabled(!canApply);
-        if (ImGui.Button($"Apply: remove {selectedDuplicateSlots.Count} duplicates"))
+        var selected = selectedDuplicateSlots.Count;
+        var freeSlots = InventorySpace.FreeSlots();
+        var willRemove = plugin.Config.DryRun ? selected : System.Math.Min(selected, freeSlots);
+
+        if (selected > 0 && !plugin.Config.DryRun && selected > freeSlots)
         {
+            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+                $"Inventory has {freeSlots} free slots — will remove {willRemove} of {selected} this round. Clear space and re-apply for the rest.");
+        }
+        else if (selected > 0 && !plugin.Config.DryRun)
+        {
+            ImGui.TextDisabled($"Inventory free: {freeSlots} slots.");
+        }
+
+        var canApply = plugin.Config.DryRun || plugin.Dresser.IsActivatable;
+        canApply = canApply && willRemove > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
+        {
+            var done = 0;
             foreach (var d in duplicates.ArmoireRedundant)
-                if (selectedDuplicateSlots.Contains(d.SlotIndex)) plugin.Executor.RemoveFromDresser(d);
+            {
+                if (done >= willRemove) break;
+                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
+                plugin.Executor.RemoveFromDresser(d);
+                done++;
+            }
             foreach (var d in duplicates.MultipleCopies)
-                if (selectedDuplicateSlots.Contains(d.SlotIndex)) plugin.Executor.RemoveFromDresser(d);
+            {
+                if (done >= willRemove) break;
+                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
+                plugin.Executor.RemoveFromDresser(d);
+                done++;
+            }
         }
         ImGui.EndDisabled();
         ImGui.Separator();

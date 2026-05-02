@@ -10,6 +10,7 @@ public sealed class Configuration : IPluginConfiguration
     public int Version { get; set; } = 1;
 
     public bool DryRun { get; set; } = true;
+    public int MultiRoundThreshold { get; set; } = 10;
 
     public DresserCache CachedDresser { get; set; } = new();
     public CabinetCache CachedCabinet { get; set; } = new();
