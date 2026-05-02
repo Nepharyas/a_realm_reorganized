@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using ARealmReorganized.Models;
 using ARealmReorganized.Services;
 
@@ -10,6 +11,18 @@ public static class DuplicateDetection
     {
         public required IReadOnlyList<DresserItem> ArmoireRedundant { get; init; }
         public required IReadOnlyList<DresserItem> MultipleCopies { get; init; }
+
+        public Result WithSlotsRemoved(HashSet<ushort> removed)
+        {
+            if (removed.Count == 0) return this;
+            var keptMultiple = MultipleCopies.Where(d => !removed.Contains(d.SlotIndex)).ToList();
+            var countByItemId = keptMultiple.ToLookup(d => d.ItemId);
+            return new Result
+            {
+                ArmoireRedundant = ArmoireRedundant.Where(d => !removed.Contains(d.SlotIndex)).ToList(),
+                MultipleCopies = keptMultiple.Where(d => countByItemId[d.ItemId].Count() >= 2).ToList(),
+            };
+        }
     }
 
     public static Result Find(IEnumerable<DresserItem> items, ICabinetService cabinet)
