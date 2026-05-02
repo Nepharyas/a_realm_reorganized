@@ -57,18 +57,18 @@ public sealed class MainWindow : Window, IDisposable
             }
             else if (ImGui.BeginTabBar("##arrtabs"))
             {
-                if (ImGui.BeginTabItem($"Move to Armoire ({storableCandidates.Count})"))
+                if (ImGui.BeginTabItem($"Move to Armoire ({storableCandidates.Count})##armoire"))
                 {
                     DrawArmoireTab();
                     ImGui.EndTabItem();
                 }
-                if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})"))
+                if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})##compress"))
                 {
                     DrawCompressTab();
                     ImGui.EndTabItem();
                 }
                 var dupeCount = duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count;
-                if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})"))
+                if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})##duplicates"))
                 {
                     DrawDuplicatesTab();
                     ImGui.EndTabItem();
