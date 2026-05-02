@@ -16,9 +16,15 @@ public sealed class MainWindow : Window, IDisposable
 
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
+    private DuplicateDetection.Result duplicates = new()
+    {
+        MultipleCopies = Array.Empty<DresserItem>(),
+        ArmoireRedundant = Array.Empty<DresserItem>(),
+    };
     private readonly Dictionary<uint, string> itemNames = new();
     private readonly HashSet<uint> selectedStorableIds = new();
     private readonly HashSet<uint> selectedSetIds = new();
+    private readonly HashSet<ushort> selectedDuplicateSlots = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
@@ -59,6 +65,12 @@ public sealed class MainWindow : Window, IDisposable
                 if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})"))
                 {
                     DrawCompressTab();
+                    ImGui.EndTabItem();
+                }
+                var dupeCount = duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count;
+                if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})"))
+                {
+                    DrawDuplicatesTab();
                     ImGui.EndTabItem();
                 }
                 ImGui.EndTabBar();
@@ -231,17 +243,141 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.EndChild();
     }
 
+    private void DrawDuplicatesTab()
+    {
+        if (duplicates.MultipleCopies.Count == 0 && duplicates.ArmoireRedundant.Count == 0)
+        {
+            ImGui.TextDisabled("No duplicates detected.");
+            return;
+        }
+
+        if (ImGui.Button("Select duplicates (keep one of each)"))
+        {
+            foreach (var d in duplicates.ArmoireRedundant) selectedDuplicateSlots.Add(d.SlotIndex);
+            uint lastId = 0;
+            var keptOne = false;
+            foreach (var d in duplicates.MultipleCopies)
+            {
+                if (d.ItemId != lastId) { lastId = d.ItemId; keptOne = false; }
+                if (!keptOne) { keptOne = true; continue; }
+                selectedDuplicateSlots.Add(d.SlotIndex);
+            }
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##dupes")) selectedDuplicateSlots.Clear();
+
+        ImGui.Spacing();
+
+        var canApply = plugin.Config.DryRun || plugin.Dresser.IsActivatable;
+        canApply = canApply && selectedDuplicateSlots.Count > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: remove {selectedDuplicateSlots.Count} duplicates"))
+        {
+            foreach (var d in duplicates.ArmoireRedundant)
+                if (selectedDuplicateSlots.Contains(d.SlotIndex)) plugin.Executor.RemoveFromDresser(d);
+            foreach (var d in duplicates.MultipleCopies)
+                if (selectedDuplicateSlots.Contains(d.SlotIndex)) plugin.Executor.RemoveFromDresser(d);
+        }
+        ImGui.EndDisabled();
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##dupelist", Vector2.Zero))
+        {
+            if (duplicates.ArmoireRedundant.Count > 0)
+            {
+                ImGui.TextDisabled(
+                    $"Already in armoire ({duplicates.ArmoireRedundant.Count}) — undyed copies you can drop:");
+                foreach (var d in duplicates.ArmoireRedundant)
+                {
+                    DrawDuplicateRow(d, "a");
+                }
+            }
+
+            if (duplicates.MultipleCopies.Count > 0)
+            {
+                if (duplicates.ArmoireRedundant.Count > 0) ImGui.Spacing();
+                ImGui.TextDisabled(
+                    $"Multiple copies in dresser ({duplicates.MultipleCopies.Count}) — pick which to keep:");
+                foreach (var d in duplicates.MultipleCopies)
+                {
+                    DrawDuplicateRow(d, "m");
+                }
+            }
+        }
+        ImGui.EndChild();
+    }
+
+    private void DrawDuplicateRow(DresserItem d, string idPrefix)
+    {
+        var checkedFlag = selectedDuplicateSlots.Contains(d.SlotIndex);
+        if (ImGui.Checkbox($"##{idPrefix}{d.SlotIndex}", ref checkedFlag))
+        {
+            if (checkedFlag) selectedDuplicateSlots.Add(d.SlotIndex);
+            else selectedDuplicateSlots.Remove(d.SlotIndex);
+        }
+        ImGui.SameLine();
+        DrawDyeSwatch(d.Stain0, d.SlotIndex * 2);
+        ImGui.SameLine(0, 2);
+        DrawDyeSwatch(d.Stain1, d.SlotIndex * 2 + 1);
+        ImGui.SameLine();
+        var name = itemNames.GetValueOrDefault(d.ItemId, $"Item #{d.ItemId}");
+        ImGui.TextUnformatted(name);
+    }
+
+    private static void DrawDyeSwatch(byte stainId, int discriminator)
+    {
+        var size = new Vector2(14, 14);
+        if (stainId == 0)
+        {
+            var pos = ImGui.GetCursorScreenPos();
+            var drawList = ImGui.GetWindowDrawList();
+            var bg = ImGui.ColorConvertFloat4ToU32(new Vector4(0.18f, 0.18f, 0.18f, 1f));
+            var line = ImGui.ColorConvertFloat4ToU32(new Vector4(0.55f, 0.55f, 0.55f, 1f));
+            drawList.AddRectFilled(pos, pos + size, bg);
+            drawList.AddRect(pos, pos + size, line);
+            drawList.AddLine(pos, new Vector2(pos.X + size.X, pos.Y + size.Y), line, 1.2f);
+            ImGui.InvisibleButton($"##nodye{discriminator}", size);
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Undyed");
+            return;
+        }
+        var sheet = Service.DataManager.GetExcelSheet<Stain>();
+        if (sheet is null) { ImGui.Dummy(size); return; }
+        var row = sheet.GetRowOrDefault(stainId);
+        if (row is null) { ImGui.Dummy(size); return; }
+
+        var color = row.Value.Color;
+        var v4 = new Vector4(
+            ((color >> 16) & 0xFF) / 255f,
+            ((color >> 8) & 0xFF) / 255f,
+            (color & 0xFF) / 255f,
+            1f);
+        ImGui.ColorButton(
+            $"##stain{stainId}_{discriminator}", v4,
+            ImGuiColorEditFlags.NoTooltip | ImGuiColorEditFlags.NoBorder,
+            size);
+        if (ImGui.IsItemHovered())
+        {
+            var name = row.Value.Name.ExtractText();
+            if (!string.IsNullOrWhiteSpace(name)) ImGui.SetTooltip(name);
+        }
+    }
+
     private void RunScan()
     {
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         setGroups = SetCompression.GroupBySeries(snapshot, 2);
+        duplicates = DuplicateDetection.Find(snapshot, plugin.Cabinet);
 
         itemNames.Clear();
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
         if (itemSheet is not null)
         {
-            foreach (var id in storableCandidates)
+            var allIds = new HashSet<uint>(storableCandidates);
+            foreach (var d in duplicates.MultipleCopies) allIds.Add(d.ItemId);
+            foreach (var d in duplicates.ArmoireRedundant) allIds.Add(d.ItemId);
+
+            foreach (var id in allIds)
             {
                 var row = itemSheet.GetRowOrDefault(id);
                 if (row is not null) itemNames[id] = row.Value.Name.ExtractText();
@@ -250,8 +386,11 @@ public sealed class MainWindow : Window, IDisposable
 
         selectedStorableIds.Clear();
         selectedSetIds.Clear();
+        selectedDuplicateSlots.Clear();
         hasScanned = true;
         Service.Log.Information(
-            $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, {setGroups.Count} set groups.");
+            $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
+            $"{setGroups.Count} set groups, " +
+            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.");
     }
 }
