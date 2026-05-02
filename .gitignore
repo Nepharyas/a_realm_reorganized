@@ -1,5 +1,7 @@
 bin/
 obj/
+
+# User config
 .vs/
 .idea/
 *.user
