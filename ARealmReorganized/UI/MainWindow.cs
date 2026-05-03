@@ -5,6 +5,7 @@ using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using Lumina.Excel.Sheets;
 
@@ -32,6 +33,14 @@ public sealed class MainWindow : Window, IDisposable
         this.plugin = plugin;
         Size = new Vector2(720, 560);
         SizeCondition = ImGuiCond.FirstUseEver;
+
+        TitleBarButtons.Add(new TitleBarButton
+        {
+            Icon = FontAwesomeIcon.Cog,
+            IconOffset = new Vector2(2, 1),
+            Click = _ => plugin.SettingsWindow.IsOpen = true,
+            ShowTooltip = () => ImGui.SetTooltip("Settings"),
+        });
     }
 
     public void Dispose() { }
@@ -39,8 +48,8 @@ public sealed class MainWindow : Window, IDisposable
     public override void Draw()
     {
         ImGui.TextWrapped(
-            "Scan your Glamour Dresser for items that can be moved to the Armoire " +
-            "and detect partial sets that can be regrouped. Nothing happens until you press Apply.");
+            "Tidy up your glam collection! Scan your Glamour Dresser for items that can be moved to the Armoire, " +
+            "detect sets that can be regrouped, free some inventory/retainers/chocobo space.");
         ImGui.Separator();
 
         DrawServiceStatus();
@@ -53,7 +62,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (!hasScanned)
             {
-                ImGui.TextDisabled("Press Scan to populate results.");
+                TextDisabledWrapped("Press Scan to populate results.");
             }
             else if (ImGui.BeginTabBar("##arrtabs"))
             {
@@ -110,9 +119,9 @@ public sealed class MainWindow : Window, IDisposable
             ? "armoire: never seen yet"
             : $"armoire: {Humanize(DateTime.UtcNow - cabinetCache.RefreshedAt)} ago ({cabinetCache.StoredIds.Count} stored)";
 
-        ImGui.TextDisabled(
+        TextDisabledWrapped(
             $"{dresserMsg}    {cabinetMsg}    inventory: {InventorySpace.FreeSlots()} free, {InventorySpace.GlamourPrismCount()} prisms");
-        ImGui.TextDisabled($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
+        TextDisabledWrapped($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
 
     private static string Humanize(TimeSpan ts)
@@ -121,6 +130,13 @@ public sealed class MainWindow : Window, IDisposable
         if (ts.TotalMinutes < 60) return $"{(int)ts.TotalMinutes}m";
         if (ts.TotalHours < 24) return $"{(int)ts.TotalHours}h";
         return $"{(int)ts.TotalDays}d";
+    }
+
+    private static void TextDisabledWrapped(string text)
+    {
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+        ImGui.TextWrapped(text);
+        ImGui.PopStyleColor();
     }
 
     private void DrawScanRow()
@@ -134,28 +150,13 @@ public sealed class MainWindow : Window, IDisposable
             plugin.Config.DryRun = dryRun;
             plugin.Config.Save();
         }
-
-        if (ImGui.CollapsingHeader("Settings"))
-        {
-            var threshold = plugin.Config.MultiRoundThreshold;
-            ImGui.SetNextItemWidth(150);
-            if (ImGui.SliderInt("Stop multi-round transfer when free inventory drops below", ref threshold, 1, 30))
-            {
-                plugin.Config.MultiRoundThreshold = threshold;
-                plugin.Config.Save();
-            }
-            ImGui.TextDisabled(
-                "When applying a Move or Compress that exceeds your free slots, the plugin will run several rounds " +
-                "(transferring as many as fit, waiting for inventory to clear, then continuing). It pauses when " +
-                "free slots drop below the threshold above to avoid slow trickle transfers.");
-        }
     }
 
     private void DrawArmoireTab()
     {
         if (storableCandidates.Count == 0)
         {
-            ImGui.TextDisabled("Nothing in your dresser is currently armoire-eligible.");
+            TextDisabledWrapped("Nothing in your dresser is currently armoire-eligible.");
             return;
         }
 
@@ -215,7 +216,7 @@ public sealed class MainWindow : Window, IDisposable
 
         if (completeSets.Count == 0 && partialSets.Count == 0)
         {
-            ImGui.TextDisabled("No detected sets. Add gear to your dresser and re-scan.");
+            TextDisabledWrapped("No detected sets. Add gear to your dresser and re-scan.");
             return;
         }
 
@@ -248,8 +249,8 @@ public sealed class MainWindow : Window, IDisposable
             if (setsToCompress.Count < selectedSetsList.Count)
             {
                 var msg = capReason == "prisms"
-                    ? $"You have {prisms} glamour prisms — will compress {setsToCompress.Count} of {selectedSetsList.Count} sets this round. Get more prisms for the rest."
-                    : $"Inventory has {freeSlots} free slots — will compress {setsToCompress.Count} of {selectedSetsList.Count} sets this round. Clear space and re-apply.";
+                    ? $"Need {selectedSetsList.Count} prisms total — you have {prisms}. Compressing {setsToCompress.Count} this round."
+                    : $"Inventory has {freeSlots} free slots — compressing {setsToCompress.Count} of {selectedSetsList.Count} sets this round.";
                 ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), msg);
             }
         }
@@ -269,7 +270,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (completeSets.Count > 0)
             {
-                ImGui.TextDisabled($"Complete sets ({completeSets.Count}):");
+                TextDisabledWrapped($"Complete sets ({completeSets.Count}):");
                 foreach (var g in completeSets)
                 {
                     var checkedFlag = selectedSetIds.Contains(g.SeriesId);
@@ -285,7 +286,7 @@ public sealed class MainWindow : Window, IDisposable
             if (partialSets.Count > 0)
             {
                 if (completeSets.Count > 0) ImGui.Spacing();
-                ImGui.TextDisabled($"Partial sets ({partialSets.Count}) — finish to compress:");
+                TextDisabledWrapped($"Partial sets ({partialSets.Count}) — finish to compress:");
                 ImGui.BeginDisabled(true);
                 foreach (var g in partialSets)
                 {
@@ -304,7 +305,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         if (duplicates.MultipleCopies.Count == 0 && duplicates.ArmoireRedundant.Count == 0)
         {
-            ImGui.TextDisabled("No duplicates detected.");
+            TextDisabledWrapped("No duplicates detected.");
             return;
         }
 
@@ -336,7 +337,7 @@ public sealed class MainWindow : Window, IDisposable
         }
         else if (selected > 0 && !plugin.Config.DryRun)
         {
-            ImGui.TextDisabled($"Inventory free: {freeSlots} slots.");
+            TextDisabledWrapped($"Inventory free: {freeSlots} slots.");
         }
 
         var canApply = plugin.Config.DryRun || plugin.Dresser.IsActivatable;
@@ -362,7 +363,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (duplicates.ArmoireRedundant.Count > 0)
             {
-                ImGui.TextDisabled(
+                TextDisabledWrapped(
                     $"Already in armoire ({duplicates.ArmoireRedundant.Count}) — undyed copies you can drop:");
                 foreach (var d in duplicates.ArmoireRedundant)
                 {
@@ -373,7 +374,7 @@ public sealed class MainWindow : Window, IDisposable
             if (duplicates.MultipleCopies.Count > 0)
             {
                 if (duplicates.ArmoireRedundant.Count > 0) ImGui.Spacing();
-                ImGui.TextDisabled(
+                TextDisabledWrapped(
                     $"Multiple copies in dresser ({duplicates.MultipleCopies.Count}) — pick which to keep:");
                 foreach (var d in duplicates.MultipleCopies)
                 {

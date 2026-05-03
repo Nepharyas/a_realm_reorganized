@@ -16,6 +16,7 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Config { get; }
     public WindowSystem Windows { get; } = new("ARealmReorganized");
     public MainWindow MainWindow { get; }
+    public SettingsWindow SettingsWindow { get; }
 
     public ICabinetService Cabinet { get; }
     public IGlamourDresserService Dresser { get; }
@@ -34,7 +35,9 @@ public sealed class Plugin : IDalamudPlugin
         Executor = new ActionExecutor(this);
 
         MainWindow = new MainWindow(this);
+        SettingsWindow = new SettingsWindow(this);
         Windows.AddWindow(MainWindow);
+        Windows.AddWindow(SettingsWindow);
 
         Service.CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
@@ -43,7 +46,7 @@ public sealed class Plugin : IDalamudPlugin
 
         Service.PluginInterface.UiBuilder.Draw += Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi += OpenMain;
-        Service.PluginInterface.UiBuilder.OpenConfigUi += OpenMain;
+        Service.PluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
         Service.Framework.Update += OnFrameworkUpdate;
     }
 
@@ -52,13 +55,15 @@ public sealed class Plugin : IDalamudPlugin
         Service.Framework.Update -= OnFrameworkUpdate;
         Service.PluginInterface.UiBuilder.Draw -= Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi -= OpenMain;
-        Service.PluginInterface.UiBuilder.OpenConfigUi -= OpenMain;
+        Service.PluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
         Service.CommandManager.RemoveHandler(MainCommand);
         Windows.RemoveAllWindows();
         MainWindow.Dispose();
+        SettingsWindow.Dispose();
     }
 
     private void OpenMain() => MainWindow.IsOpen = true;
+    private void OpenSettings() => SettingsWindow.IsOpen = true;
     private void OnCommand(string _, string __) => MainWindow.Toggle();
 
     private void OnFrameworkUpdate(IFramework _)
