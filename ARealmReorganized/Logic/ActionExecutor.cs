@@ -17,7 +17,7 @@ public sealed class ActionExecutor : IActionExecutor
         var name = ResolveName(itemId);
         if (plugin.Config.DryRun)
         {
-            Log($"[dry-run] would move {name} (#{itemId}) to armoire");
+            LogDryRun($"[dry-run] would move {name} (#{itemId}) to armoire");
             return ActionResult.Success;
         }
         LogWarn($"Move to armoire not yet implemented for {name} (#{itemId})");
@@ -28,7 +28,7 @@ public sealed class ActionExecutor : IActionExecutor
     {
         if (plugin.Config.DryRun)
         {
-            Log($"[dry-run] would compress set '{set.Name}' ({set.Pieces.Count}/{set.TotalPieces} pieces)");
+            LogDryRun($"[dry-run] would compress set '{set.Name}' ({set.Pieces.Count}/{set.TotalPieces} pieces)");
             return ActionResult.Success;
         }
         LogWarn($"Compress set not yet implemented for '{set.Name}'");
@@ -40,26 +40,32 @@ public sealed class ActionExecutor : IActionExecutor
         var name = ResolveName(item.ItemId);
         if (plugin.Config.DryRun)
         {
-            Log($"[dry-run] would remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
+            LogDryRun($"[dry-run] would remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
             return ActionResult.Success;
         }
         var ok = plugin.Dresser.Remove(item);
-        Log(ok
+        LogInfo(ok
             ? $"Removed {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser"
             : $"Failed to remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
         return ok ? ActionResult.Success : ActionResult.Failed;
     }
 
-    private void Log(string msg)
+    private void LogInfo(string msg)
     {
         Service.Log.Information(msg);
         plugin.LogBuffer.Add(msg);
     }
 
+    private void LogDryRun(string msg)
+    {
+        Service.Log.Information(msg);
+        plugin.LogBuffer.Add(msg, LogLevel.DryRun);
+    }
+
     private void LogWarn(string msg)
     {
         Service.Log.Warning(msg);
-        plugin.LogBuffer.Add(msg);
+        plugin.LogBuffer.Add(msg, LogLevel.Warning);
     }
 
     private static string ResolveName(uint itemId)

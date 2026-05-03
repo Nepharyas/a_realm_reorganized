@@ -472,9 +472,11 @@ public sealed class MainWindow : Window, IDisposable
         selectedSetIds.Clear();
         selectedDuplicateSlots.Clear();
         hasScanned = true;
-        Service.Log.Information(
+        var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
             $"{setGroups.Count} set groups, " +
-            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.");
+            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.";
+        Service.Log.Information(scanMsg);
+        plugin.LogBuffer.Add(scanMsg);
     }
 }

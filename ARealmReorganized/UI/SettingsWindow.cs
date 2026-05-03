@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using ARealmReorganized.Logic;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 
@@ -69,14 +70,30 @@ public sealed class SettingsWindow : Window, IDisposable
     {
         if (ImGui.Button("Clear")) plugin.LogBuffer.Clear();
         ImGui.SameLine();
+        if (ImGui.Button("Copy")) ImGui.SetClipboardText(plugin.LogBuffer.AsText());
+        ImGui.SameLine();
         ImGui.Checkbox("Auto-scroll", ref autoScrollLogs);
 
         ImGui.Separator();
 
         if (ImGui.BeginChild("##logarea", Vector2.Zero, true))
         {
-            foreach (var line in plugin.LogBuffer.Snapshot())
-                ImGui.TextUnformatted(line);
+            foreach (var entry in plugin.LogBuffer.Snapshot())
+            {
+                var text = entry.Format();
+                switch (entry.Level)
+                {
+                    case LogLevel.DryRun:
+                        ImGui.TextColored(new Vector4(0.7f, 0.78f, 0.95f, 1f), text);
+                        break;
+                    case LogLevel.Warning:
+                        ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), text);
+                        break;
+                    default:
+                        ImGui.TextUnformatted(text);
+                        break;
+                }
+            }
             if (autoScrollLogs)
                 ImGui.SetScrollHereY(1f);
         }
