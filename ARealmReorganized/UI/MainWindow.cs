@@ -405,7 +405,7 @@ public sealed class MainWindow : Window, IDisposable
             return;
         }
 
-        if (ImGui.Button("Select all"))
+        if (ImGui.Button("Select all##inventory"))
             foreach (var entry in inventoryStorable) selectedInventoryIds.Add(entry.ItemId);
         ImGui.SameLine();
         if (ImGui.Button("Clear##inventory")) selectedInventoryIds.Clear();
