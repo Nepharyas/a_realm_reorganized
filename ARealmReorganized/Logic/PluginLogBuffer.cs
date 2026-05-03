@@ -41,6 +41,24 @@ public sealed class PluginLogBuffer
         }
     }
 
+    public void Info(string message)
+    {
+        Service.Log.Information(message);
+        Add(message, LogLevel.Info);
+    }
+
+    public void DryRun(string message)
+    {
+        Service.Log.Information(message);
+        Add(message, LogLevel.DryRun);
+    }
+
+    public void Warn(string message)
+    {
+        Service.Log.Warning(message);
+        Add(message, LogLevel.Warning);
+    }
+
     public IReadOnlyList<LogEntry> Snapshot()
     {
         lock (gate) return new List<LogEntry>(entries);
