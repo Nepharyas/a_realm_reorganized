@@ -188,7 +188,7 @@ public sealed class MainWindow : Window, IDisposable
                 plugin.Executor.MoveToArmoire(id);
                 done++;
             }
-            if (plugin.Config.DryRun) plugin.SettingsWindow.OpenOnLogs();
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -262,7 +262,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             foreach (var s in setsToCompress)
                 plugin.Executor.CompressSet(s);
-            if (plugin.Config.DryRun) plugin.SettingsWindow.OpenOnLogs();
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -357,7 +357,7 @@ public sealed class MainWindow : Window, IDisposable
                 foreach (var slot in removed)
                     selectedDuplicateSlots.Remove(slot);
             }
-            if (dryRun) plugin.SettingsWindow.OpenOnLogs();
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
