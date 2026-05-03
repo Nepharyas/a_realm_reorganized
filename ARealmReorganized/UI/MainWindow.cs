@@ -350,7 +350,7 @@ public sealed class MainWindow : Window, IDisposable
             {
                 if (done >= willRemove) break;
                 if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                if (plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
+                if (!plugin.Config.DryRun && plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
                 {
                     removed.Add(d.SlotIndex);
                     done++;
@@ -360,17 +360,20 @@ public sealed class MainWindow : Window, IDisposable
             {
                 if (done >= willRemove) break;
                 if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                if (plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
+                if (!plugin.Config.DryRun && plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
                 {
                     removed.Add(d.SlotIndex);
                     done++;
                 }
             }
 
-            duplicates = duplicates.WithSlotsRemoved(removed);
-            foreach (var slot in removed)
-                selectedDuplicateSlots.Remove(slot);
+            if(!plugin.Config.DryRun) {
+                duplicates = duplicates.WithSlotsRemoved(removed);
+                foreach (var slot in removed)
+                    selectedDuplicateSlots.Remove(slot);
+            }
         }
+        
         ImGui.EndDisabled();
         ImGui.Separator();
 
