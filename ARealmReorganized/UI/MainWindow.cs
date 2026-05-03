@@ -411,7 +411,7 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        var canApply = plugin.Config.DryRun || plugin.Cabinet.IsActivatable;
         canApply = canApply && selectedInventoryIds.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {selectedInventoryIds.Count} items to Armoire"))
