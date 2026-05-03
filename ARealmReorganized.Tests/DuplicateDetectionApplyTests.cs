@@ -31,7 +31,7 @@ public class DuplicateDetectionApplyTests
         public ActionResult CompressSet(SetGroup set) => ActionResult.Success;
     }
 
-    // --- dry-run (executor logs and returns Success without touching the game) ---
+    // --- dry-run ---
 
     [Fact]
     public void Apply_DryRun_ExecutorIsStillCalled()

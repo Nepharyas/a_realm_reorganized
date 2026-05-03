@@ -346,9 +346,13 @@ public sealed class MainWindow : Window, IDisposable
         {
             var (newDuplicates, removed) = DuplicateDetection.Apply(
                 duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
-            duplicates = newDuplicates;
-            foreach (var slot in removed)
-                selectedDuplicateSlots.Remove(slot);
+
+            if (!plugin.Config.DryRun)
+            {
+                duplicates = newDuplicates;
+                foreach (var slot in removed)
+                    selectedDuplicateSlots.Remove(slot);
+            }
         }
         ImGui.EndDisabled();
         ImGui.Separator();
