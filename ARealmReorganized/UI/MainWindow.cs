@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
+using ARealmReorganized.Services;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
@@ -17,6 +18,7 @@ public sealed class MainWindow : Window, IDisposable
 
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
+    private IReadOnlyList<InventoryEntry> inventoryStorable = Array.Empty<InventoryEntry>();
     private DuplicateDetection.Result duplicates = new()
     {
         MultipleCopies = Array.Empty<DresserItem>(),
@@ -26,6 +28,7 @@ public sealed class MainWindow : Window, IDisposable
     private readonly HashSet<uint> selectedStorableIds = new();
     private readonly HashSet<uint> selectedSetIds = new();
     private readonly HashSet<ushort> selectedDuplicateSlots = new();
+    private readonly HashSet<uint> selectedInventoryIds = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
@@ -80,6 +83,11 @@ public sealed class MainWindow : Window, IDisposable
                 if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})###duplicates"))
                 {
                     DrawDuplicatesTab();
+                    ImGui.EndTabItem();
+                }
+                if (ImGui.BeginTabItem($"Sort from inventory ({inventoryStorable.Count})###inventory"))
+                {
+                    DrawInventoryTab();
                     ImGui.EndTabItem();
                 }
                 ImGui.EndTabBar();
@@ -388,6 +396,61 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.EndChild();
     }
 
+    private void DrawInventoryTab()
+    {
+        if (inventoryStorable.Count == 0)
+        {
+            TextDisabledWrapped("Nothing in your inventory, armoury, or saddlebag is currently armoire-eligible.");
+            return;
+        }
+
+        if (ImGui.Button("Select all"))
+            foreach (var entry in inventoryStorable) selectedInventoryIds.Add(entry.ItemId);
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##inventory")) selectedInventoryIds.Clear();
+
+        ImGui.Spacing();
+
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        canApply = canApply && selectedInventoryIds.Count > 0;
+        ImGui.BeginDisabled(!canApply);
+        if (ImGui.Button($"Apply: move {selectedInventoryIds.Count} items to Armoire"))
+        {
+            foreach (var itemId in selectedInventoryIds)
+                plugin.Executor.MoveToArmoire(itemId);
+        }
+        ImGui.EndDisabled();
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##inventorylist", Vector2.Zero))
+        {
+            DrawInventorySection("Inventory", InventorySource.Inventory);
+            DrawInventorySection("Armoury", InventorySource.Armoury);
+            DrawInventorySection("Saddlebag", InventorySource.Saddlebag);
+        }
+        ImGui.EndChild();
+    }
+
+    private void DrawInventorySection(string label, InventorySource source)
+    {
+        var itemsInSection = inventoryStorable.Where(entry => entry.Source == source).ToList();
+        if (itemsInSection.Count == 0) return;
+
+        var headerLabel = $"{label} ({itemsInSection.Count})###invsection{source}";
+        if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        foreach (var entry in itemsInSection)
+        {
+            var checkedFlag = selectedInventoryIds.Contains(entry.ItemId);
+            var name = itemNames.GetValueOrDefault(entry.ItemId, $"Item #{entry.ItemId}");
+            if (ImGui.Checkbox($"{name}##i{entry.ItemId}", ref checkedFlag))
+            {
+                if (checkedFlag) selectedInventoryIds.Add(entry.ItemId);
+                else selectedInventoryIds.Remove(entry.ItemId);
+            }
+        }
+    }
+
     private void DrawDuplicateRow(DresserItem d, string idPrefix)
     {
         var checkedFlag = selectedDuplicateSlots.Contains(d.SlotIndex);
@@ -449,31 +512,48 @@ public sealed class MainWindow : Window, IDisposable
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         setGroups = SetCompression.GroupBySeries(snapshot, 2);
         duplicates = DuplicateDetection.Find(snapshot, plugin.Cabinet);
+        inventoryStorable = ScanInventoryForStorable();
 
         itemNames.Clear();
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
         if (itemSheet is not null)
         {
             var allIds = new HashSet<uint>(storableCandidates);
-            foreach (var d in duplicates.MultipleCopies) allIds.Add(d.ItemId);
-            foreach (var d in duplicates.ArmoireRedundant) allIds.Add(d.ItemId);
+            foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
+            foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
+            foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
 
-            foreach (var id in allIds)
+            foreach (var itemId in allIds)
             {
-                var row = itemSheet.GetRowOrDefault(id);
-                if (row is not null) itemNames[id] = row.Value.Name.ExtractText();
+                var row = itemSheet.GetRowOrDefault(itemId);
+                if (row is not null) itemNames[itemId] = row.Value.Name.ExtractText();
             }
         }
 
         selectedStorableIds.Clear();
         selectedSetIds.Clear();
         selectedDuplicateSlots.Clear();
+        selectedInventoryIds.Clear();
         hasScanned = true;
         var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
             $"{setGroups.Count} set groups, " +
-            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.";
+            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates, " +
+            $"{inventoryStorable.Count} from inventory.";
         Service.Log.Information(scanMsg);
         plugin.LogBuffer.Add(scanMsg);
+    }
+
+    private IReadOnlyList<InventoryEntry> ScanInventoryForStorable()
+    {
+        var allInventoryEntries = InventoryReader.ReadAll();
+        var result = new List<InventoryEntry>();
+        var seenItemIds = new HashSet<uint>();
+        foreach (var inventoryEntry in allInventoryEntries)
+        {
+            if (!plugin.Cabinet.IsStorable(inventoryEntry.ItemId)) continue;
+            if (seenItemIds.Add(inventoryEntry.ItemId)) result.Add(inventoryEntry);
+        }
+        return result;
     }
 }
