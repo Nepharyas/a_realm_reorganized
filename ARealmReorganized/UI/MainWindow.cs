@@ -57,18 +57,18 @@ public sealed class MainWindow : Window, IDisposable
             }
             else if (ImGui.BeginTabBar("##arrtabs"))
             {
-                if (ImGui.BeginTabItem($"Move to Armoire ({storableCandidates.Count})"))
+                if (ImGui.BeginTabItem($"Move to Armoire ({storableCandidates.Count})###armoire"))
                 {
                     DrawArmoireTab();
                     ImGui.EndTabItem();
                 }
-                if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})"))
+                if (ImGui.BeginTabItem($"Compress into sets ({setGroups.Count})###compress"))
                 {
                     DrawCompressTab();
                     ImGui.EndTabItem();
                 }
                 var dupeCount = duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count;
-                if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})"))
+                if (ImGui.BeginTabItem($"Remove duplicates ({dupeCount})###duplicates"))
                 {
                     DrawDuplicatesTab();
                     ImGui.EndTabItem();
@@ -344,20 +344,15 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
         {
-            var done = 0;
-            foreach (var d in duplicates.ArmoireRedundant)
+            var (newDuplicates, removed) = DuplicateDetection.Apply(
+                duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
+
+            // Do not update the UI when doing a DryRun.
+            if (!plugin.Config.DryRun)
             {
-                if (done >= willRemove) break;
-                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                plugin.Executor.RemoveFromDresser(d);
-                done++;
-            }
-            foreach (var d in duplicates.MultipleCopies)
-            {
-                if (done >= willRemove) break;
-                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                plugin.Executor.RemoveFromDresser(d);
-                done++;
+                duplicates = newDuplicates;
+                foreach (var slot in removed)
+                    selectedDuplicateSlots.Remove(slot);
             }
         }
         ImGui.EndDisabled();
