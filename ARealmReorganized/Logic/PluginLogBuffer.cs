@@ -72,9 +72,9 @@ public sealed class PluginLogBuffer
 
     public string AsText()
     {
-        var sb = new StringBuilder();
-        foreach (var e in Snapshot()) sb.AppendLine(e.Format());
-        return sb.ToString();
+        var stringBuilder = new StringBuilder();
+        foreach (var entry in Snapshot()) stringBuilder.AppendLine(entry.Format());
+        return stringBuilder.ToString();
     }
 
     public void Clear()
