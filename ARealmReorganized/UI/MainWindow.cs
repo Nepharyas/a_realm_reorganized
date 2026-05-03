@@ -347,6 +347,7 @@ public sealed class MainWindow : Window, IDisposable
             var (newDuplicates, removed) = DuplicateDetection.Apply(
                 duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
 
+            // Do not update the UI when doing a DryRun.
             if (!plugin.Config.DryRun)
             {
                 duplicates = newDuplicates;
