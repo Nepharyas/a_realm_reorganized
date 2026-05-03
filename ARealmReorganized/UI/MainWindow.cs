@@ -19,6 +19,7 @@ public sealed class MainWindow : Window, IDisposable
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
     private IReadOnlyList<InventoryEntry> inventoryStorable = Array.Empty<InventoryEntry>();
+    private readonly Dictionary<InventorySource, List<InventoryEntry>> inventoryBySource = new();
     private DuplicateDetection.Result duplicates = new()
     {
         MultipleCopies = Array.Empty<DresserItem>(),
@@ -433,7 +434,7 @@ public sealed class MainWindow : Window, IDisposable
 
     private void DrawInventorySection(string label, InventorySource source)
     {
-        var itemsInSection = inventoryStorable.Where(entry => entry.Source == source).ToList();
+        if (!inventoryBySource.TryGetValue(source, out var itemsInSection)) return;
         if (itemsInSection.Count == 0) return;
 
         var headerLabel = $"{label} ({itemsInSection.Count})###invsection{source}";
@@ -553,6 +554,14 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (!plugin.Cabinet.IsStorable(inventoryEntry.ItemId)) continue;
             if (seenItemIds.Add(inventoryEntry.ItemId)) result.Add(inventoryEntry);
+        }
+
+        inventoryBySource.Clear();
+        foreach (var inventoryEntry in result)
+        {
+            if (!inventoryBySource.TryGetValue(inventoryEntry.Source, out var list))
+                inventoryBySource[inventoryEntry.Source] = list = new List<InventoryEntry>();
+            list.Add(inventoryEntry);
         }
         return result;
     }
