@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using ARealmReorganized.Models;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -8,15 +7,15 @@ namespace ARealmReorganized.Services;
 internal static unsafe class InventoryReader
 {
     private static readonly InventoryType[] MainInventoryBags =
-    {
+    [
         InventoryType.Inventory1,
         InventoryType.Inventory2,
         InventoryType.Inventory3,
         InventoryType.Inventory4,
-    };
+    ];
 
     private static readonly InventoryType[] ArmouryBags =
-    {
+    [
         InventoryType.ArmoryMainHand,
         InventoryType.ArmoryOffHand,
         InventoryType.ArmoryHead,
@@ -28,18 +27,18 @@ internal static unsafe class InventoryReader
         InventoryType.ArmoryNeck,
         InventoryType.ArmoryWrist,
         InventoryType.ArmoryRings,
-    };
+    ];
 
     private static readonly InventoryType[] SaddlebagBags =
-    {
+    [
         InventoryType.SaddleBag1,
         InventoryType.SaddleBag2,
-    };
+    ];
 
     public static IReadOnlyList<InventoryEntry> ReadAll()
     {
         var manager = InventoryManager.Instance();
-        if (manager == null) return Array.Empty<InventoryEntry>();
+        if (manager == null) return [];
 
         var items = new List<InventoryEntry>();
         AppendItemsFrom(manager, MainInventoryBags, InventorySource.Inventory, items);
