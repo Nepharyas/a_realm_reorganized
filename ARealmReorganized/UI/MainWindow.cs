@@ -344,36 +344,16 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
         {
-            var removed = new HashSet<ushort>();
-            var done = 0;
-            foreach (var d in duplicates.ArmoireRedundant)
-            {
-                if (done >= willRemove) break;
-                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                if (!plugin.Config.DryRun && plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
-                {
-                    removed.Add(d.SlotIndex);
-                    done++;
-                }
-            }
-            foreach (var d in duplicates.MultipleCopies)
-            {
-                if (done >= willRemove) break;
-                if (!selectedDuplicateSlots.Contains(d.SlotIndex)) continue;
-                if (!plugin.Config.DryRun && plugin.Executor.RemoveFromDresser(d) == ActionResult.Success)
-                {
-                    removed.Add(d.SlotIndex);
-                    done++;
-                }
-            }
+            var (newDuplicates, removed) = DuplicateDetection.Apply(
+                duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
 
-            if(!plugin.Config.DryRun) {
-                duplicates = duplicates.WithSlotsRemoved(removed);
+            if (!plugin.Config.DryRun)
+            {
+                duplicates = newDuplicates;
                 foreach (var slot in removed)
                     selectedDuplicateSlots.Remove(slot);
             }
         }
-        
         ImGui.EndDisabled();
         ImGui.Separator();
 
