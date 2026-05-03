@@ -38,8 +38,7 @@ public sealed class SettingsWindow : Window, IDisposable
         }
 
         var logsFlags = jumpToLogs ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
-        var logsOpen = true;
-        if (ImGui.BeginTabItem("Logs", ref logsOpen, logsFlags))
+        if (ImGui.BeginTabItem("Logs", logsFlags))
         {
             DrawLogs();
             ImGui.EndTabItem();
