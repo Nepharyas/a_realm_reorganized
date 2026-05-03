@@ -22,6 +22,7 @@ public sealed class Plugin : IDalamudPlugin
     public IGlamourDresserService Dresser { get; }
     public ArmoireEligibility Eligibility { get; }
     public IActionExecutor Executor { get; }
+    public PluginLogBuffer LogBuffer { get; } = new();
 
     public Plugin(IDalamudPluginInterface pi)
     {
