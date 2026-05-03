@@ -121,7 +121,6 @@ public sealed class MainWindow : Window, IDisposable
 
         TextDisabledWrapped(
             $"{dresserMsg}    {cabinetMsg}    inventory: {InventorySpace.FreeSlots()} free, {InventorySpace.GlamourPrismCount()} prisms");
-        TextDisabledWrapped($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
 
     private static string Humanize(TimeSpan ts)
@@ -347,20 +346,18 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
         {
+            var dryRun = plugin.Config.DryRun;
             var (newDuplicates, removed) = DuplicateDetection.Apply(
                 duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
 
-            // Do not update the UI when doing a DryRun.
-            if (!plugin.Config.DryRun)
+            // Don't update the UI when doing a DryRun — the log opens instead.
+            if (!dryRun)
             {
                 duplicates = newDuplicates;
                 foreach (var slot in removed)
                     selectedDuplicateSlots.Remove(slot);
             }
-            else
-            {
-                plugin.SettingsWindow.OpenOnLogs();
-            }
+            if (dryRun) plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();

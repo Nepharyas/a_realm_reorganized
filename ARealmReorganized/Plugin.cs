@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
         Config = Service.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
         Eligibility = new ArmoireEligibility();
+        LogBuffer.Add($"Armoire-eligible items in current game data: {Eligibility.Count}");
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
         Executor = new ActionExecutor(this);
