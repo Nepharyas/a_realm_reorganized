@@ -77,7 +77,7 @@ public sealed class SettingsWindow : Window, IDisposable
 
         if (ImGui.BeginChild("##logarea", Vector2.Zero, true))
         {
-            foreach (var entry in plugin.LogBuffer.Snapshot())
+            plugin.LogBuffer.ForEach(entry =>
             {
                 var text = entry.Format();
                 switch (entry.Level)
@@ -92,8 +92,8 @@ public sealed class SettingsWindow : Window, IDisposable
                         ImGui.TextUnformatted(text);
                         break;
                 }
-            }
-            if (autoScrollLogs)
+            });
+            if (autoScrollLogs && ImGui.GetScrollY() >= ImGui.GetScrollMaxY() - 1)
                 ImGui.SetScrollHereY(1f);
         }
         ImGui.EndChild();

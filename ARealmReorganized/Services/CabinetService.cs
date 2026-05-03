@@ -55,6 +55,7 @@ internal sealed unsafe class CabinetService : ICabinetService
     }
 
     private DateTime lastCheck = DateTime.MinValue;
+    private bool loggedFirstLoad;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
 
     public void RefreshCacheIfLive()
@@ -73,6 +74,12 @@ internal sealed unsafe class CabinetService : ICabinetService
         }
         cache.RefreshedAt = now;
         plugin.Config.Save();
+
+        if (!loggedFirstLoad)
+        {
+            plugin.LogBuffer.Add($"Armoire data loaded ({cache.StoredIds.Count} stored)");
+            loggedFirstLoad = true;
+        }
     }
 
     private static bool IsCabinetLoaded()

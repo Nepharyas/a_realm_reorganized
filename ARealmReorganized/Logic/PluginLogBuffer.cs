@@ -46,6 +46,12 @@ public sealed class PluginLogBuffer
         lock (gate) return new List<LogEntry>(entries);
     }
 
+    public void ForEach(Action<LogEntry> visit)
+    {
+        lock (gate)
+            foreach (var entry in entries) visit(entry);
+    }
+
     public string AsText()
     {
         var sb = new StringBuilder();
