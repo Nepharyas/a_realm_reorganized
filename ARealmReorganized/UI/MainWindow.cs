@@ -121,7 +121,6 @@ public sealed class MainWindow : Window, IDisposable
 
         TextDisabledWrapped(
             $"{dresserMsg}    {cabinetMsg}    inventory: {InventorySpace.FreeSlots()} free, {InventorySpace.GlamourPrismCount()} prisms");
-        TextDisabledWrapped($"Armoire-eligible items in current game data: {plugin.Eligibility.Count}");
     }
 
     private static string Humanize(TimeSpan ts)
@@ -189,6 +188,7 @@ public sealed class MainWindow : Window, IDisposable
                 plugin.Executor.MoveToArmoire(id);
                 done++;
             }
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -262,6 +262,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             foreach (var s in setsToCompress)
                 plugin.Executor.CompressSet(s);
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -345,16 +346,18 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
         {
+            var dryRun = plugin.Config.DryRun;
             var (newDuplicates, removed) = DuplicateDetection.Apply(
                 duplicates, selectedDuplicateSlots, willRemove, plugin.Executor);
 
-            // Do not update the UI when doing a DryRun.
-            if (!plugin.Config.DryRun)
+            // Don't update the UI when doing a DryRun — the log opens instead.
+            if (!dryRun)
             {
                 duplicates = newDuplicates;
                 foreach (var slot in removed)
                     selectedDuplicateSlots.Remove(slot);
             }
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
         ImGui.Separator();
@@ -466,9 +469,11 @@ public sealed class MainWindow : Window, IDisposable
         selectedSetIds.Clear();
         selectedDuplicateSlots.Clear();
         hasScanned = true;
-        Service.Log.Information(
+        var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
             $"{setGroups.Count} set groups, " +
-            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.");
+            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates.";
+        Service.Log.Information(scanMsg);
+        plugin.LogBuffer.Add(scanMsg);
     }
 }

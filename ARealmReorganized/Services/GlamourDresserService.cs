@@ -50,6 +50,7 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
     }
 
     private DateTime lastCheck = DateTime.MinValue;
+    private bool loggedFirstLoad;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
 
     public void RefreshCacheIfLive()
@@ -74,6 +75,12 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         }
         cache.RefreshedAt = now;
         plugin.Config.Save();
+
+        if (!loggedFirstLoad)
+        {
+            plugin.LogBuffer.Add($"Dresser data loaded ({live.Count} items)");
+            loggedFirstLoad = true;
+        }
     }
 
     private static bool HasLiveData()
