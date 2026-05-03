@@ -19,7 +19,8 @@ public sealed class MainWindow : Window, IDisposable
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
     private IReadOnlyList<SetGroup> setGroups = Array.Empty<SetGroup>();
     private IReadOnlyList<InventoryEntry> inventoryStorable = Array.Empty<InventoryEntry>();
-    private readonly Dictionary<InventorySource, List<InventoryEntry>> inventoryBySource = new();
+    private IReadOnlyDictionary<InventorySource, IReadOnlyList<InventoryEntry>> inventoryBySource =
+        new Dictionary<InventorySource, IReadOnlyList<InventoryEntry>>();
     private DuplicateDetection.Result duplicates = new()
     {
         MultipleCopies = Array.Empty<DresserItem>(),
@@ -513,7 +514,11 @@ public sealed class MainWindow : Window, IDisposable
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         setGroups = SetCompression.GroupBySeries(snapshot, 2);
         duplicates = DuplicateDetection.Find(snapshot, plugin.Cabinet);
-        inventoryStorable = ScanInventoryForStorable();
+        var grouped = InventoryGrouping.FilterAndGroup(
+            InventoryReader.ReadAll(),
+            plugin.Cabinet.IsStorable);
+        inventoryStorable = grouped.Deduped;
+        inventoryBySource = grouped.BySource;
 
         itemNames.Clear();
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
@@ -545,24 +550,4 @@ public sealed class MainWindow : Window, IDisposable
         plugin.LogBuffer.Add(scanMsg);
     }
 
-    private IReadOnlyList<InventoryEntry> ScanInventoryForStorable()
-    {
-        var allInventoryEntries = InventoryReader.ReadAll();
-        var result = new List<InventoryEntry>();
-        var seenItemIds = new HashSet<uint>();
-        foreach (var inventoryEntry in allInventoryEntries)
-        {
-            if (!plugin.Cabinet.IsStorable(inventoryEntry.ItemId)) continue;
-            if (seenItemIds.Add(inventoryEntry.ItemId)) result.Add(inventoryEntry);
-        }
-
-        inventoryBySource.Clear();
-        foreach (var inventoryEntry in result)
-        {
-            if (!inventoryBySource.TryGetValue(inventoryEntry.Source, out var list))
-                inventoryBySource[inventoryEntry.Source] = list = new List<InventoryEntry>();
-            list.Add(inventoryEntry);
-        }
-        return result;
-    }
 }
