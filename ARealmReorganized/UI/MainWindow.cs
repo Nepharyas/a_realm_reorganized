@@ -436,7 +436,6 @@ public sealed class MainWindow : Window, IDisposable
     private void DrawInventorySection(string label, InventorySource source)
     {
         if (!inventoryBySource.TryGetValue(source, out var itemsInSection)) return;
-        if (itemsInSection.Count == 0) return;
 
         var headerLabel = $"{label} ({itemsInSection.Count})###invsection{source}";
         if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
@@ -549,5 +548,4 @@ public sealed class MainWindow : Window, IDisposable
         Service.Log.Information(scanMsg);
         plugin.LogBuffer.Add(scanMsg);
     }
-
 }

@@ -8,7 +8,7 @@ public class InventoryGroupingTests
     private static InventoryEntry Entry(uint itemId, InventorySource source) =>
         new(itemId, source);
 
-    private static bool Storable(uint _) => true;
+    private static bool AlwaysStorable(uint _) => true;
 
     [Fact]
     public void FilterAndGroup_DropsItemsThatFailPredicate()
@@ -37,7 +37,7 @@ public class InventoryGroupingTests
             Entry(1, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, Storable);
+        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
 
         var only = Assert.Single(result.Deduped);
         Assert.Equal(Entry(1, InventorySource.Inventory), only);
@@ -54,7 +54,7 @@ public class InventoryGroupingTests
             Entry(4, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, Storable);
+        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
 
         Assert.Equal(
             [Entry(1, InventorySource.Inventory), Entry(3, InventorySource.Inventory)],
@@ -75,7 +75,7 @@ public class InventoryGroupingTests
             Entry(1, InventorySource.Inventory),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, Storable);
+        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
 
         Assert.Single(result.BySource);
         Assert.True(result.BySource.ContainsKey(InventorySource.Inventory));
@@ -86,7 +86,7 @@ public class InventoryGroupingTests
     [Fact]
     public void FilterAndGroup_EmptyInputReturnsEmptyResult()
     {
-        var result = InventoryGrouping.FilterAndGroup([], Storable);
+        var result = InventoryGrouping.FilterAndGroup([], AlwaysStorable);
 
         Assert.Empty(result.Deduped);
         Assert.Empty(result.BySource);
@@ -103,7 +103,7 @@ public class InventoryGroupingTests
             Entry(30, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, Storable);
+        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
 
         var flatFromGroups = result.BySource.SelectMany(kv => kv.Value).ToHashSet();
         Assert.Equal(result.Deduped.ToHashSet(), flatFromGroups);
