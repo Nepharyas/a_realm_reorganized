@@ -36,6 +36,37 @@ public static class DuplicateDetection
         }
     }
 
+    /// <summary>
+    /// Removes selected duplicate slots from the dresser via <paramref name="executor"/> and
+    /// returns the updated result and the set of slots that were successfully removed.
+    /// Failed removals do not count against <paramref name="willRemove"/>.
+    /// </summary>
+    public static (Result duplicates, IReadOnlySet<ushort> removed) Apply(
+        Result duplicates,
+        IReadOnlySet<ushort> selected,
+        int willRemove,
+        IActionExecutor executor)
+    {
+        var removed = new HashSet<ushort>();
+
+        foreach (var d in duplicates.ArmoireRedundant)
+        {
+            if (removed.Count >= willRemove) break;
+            if (!selected.Contains(d.SlotIndex)) continue;
+            if (executor.RemoveFromDresser(d) == ActionResult.Success)
+                removed.Add(d.SlotIndex);
+        }
+        foreach (var d in duplicates.MultipleCopies)
+        {
+            if (removed.Count >= willRemove) break;
+            if (!selected.Contains(d.SlotIndex)) continue;
+            if (executor.RemoveFromDresser(d) == ActionResult.Success)
+                removed.Add(d.SlotIndex);
+        }
+
+        return (duplicates.WithSlotsRemoved(removed), removed);
+    }
+
     public static Result Find(IEnumerable<DresserItem> items, ICabinetService cabinet)
     {
         var byItemId = new Dictionary<uint, List<DresserItem>>();
