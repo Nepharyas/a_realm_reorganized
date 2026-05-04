@@ -60,7 +60,7 @@ internal static unsafe class InventoryReader
             for (int slotIndex = 0; slotIndex < container->Size; slotIndex++)
             {
                 var slot = container->GetInventorySlot(slotIndex);
-                if (slot == null || slot->ItemId == 0) continue;
+                if (slot == null || slot->IsEmpty()) continue;
                 output.Add(new InventoryEntry(slot->ItemId, source));
             }
         }

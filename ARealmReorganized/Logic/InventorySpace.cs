@@ -1,3 +1,4 @@
+using ARealmReorganized.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace ARealmReorganized.Logic;
@@ -25,7 +26,7 @@ public static unsafe class InventorySpace
             if (container == null) continue;
             for (int i = 0; i < container->Size; i++)
             {
-                if (container->GetInventorySlot(i)->ItemId == 0) free++;
+                if (container->GetInventorySlot(i)->IsEmpty()) free++;
             }
         }
         return free;
