@@ -5,10 +5,10 @@ namespace ARealmReorganized.Tests;
 
 public class InventoryGroupingTests
 {
-    private static InventoryEntry Entry(uint itemId, InventorySource source) =>
-        new(itemId, source);
+    private static InventoryEntry Entry(uint itemId, InventorySource source, bool isHq = false) =>
+        new(itemId, source, isHq);
 
-    private static bool AlwaysStorable(uint _) => true;
+    private static bool KeepAll(InventoryEntry _) => true;
 
     [Fact]
     public void FilterAndGroup_DropsItemsThatFailPredicate()
@@ -20,7 +20,7 @@ public class InventoryGroupingTests
             Entry(3, InventorySource.Inventory),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, itemId => itemId != 2);
+        var result = InventoryGrouping.FilterAndGroup(entries, entry => entry.ItemId != 2);
 
         Assert.Equal(
             [Entry(1, InventorySource.Inventory), Entry(3, InventorySource.Inventory)],
@@ -28,7 +28,7 @@ public class InventoryGroupingTests
     }
 
     [Fact]
-    public void FilterAndGroup_DedupesByItemIdKeepingFirstSeen()
+    public void FilterAndGroup_DedupesByItemIdKeepingFirstSeenSource()
     {
         InventoryEntry[] entries =
         [
@@ -37,7 +37,7 @@ public class InventoryGroupingTests
             Entry(1, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
 
         var only = Assert.Single(result.Deduped);
         Assert.Equal(Entry(1, InventorySource.Inventory), only);
@@ -54,7 +54,7 @@ public class InventoryGroupingTests
             Entry(4, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
 
         Assert.Equal(
             [Entry(1, InventorySource.Inventory), Entry(3, InventorySource.Inventory)],
@@ -75,7 +75,7 @@ public class InventoryGroupingTests
             Entry(1, InventorySource.Inventory),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
 
         Assert.Single(result.BySource);
         Assert.True(result.BySource.ContainsKey(InventorySource.Inventory));
@@ -86,7 +86,7 @@ public class InventoryGroupingTests
     [Fact]
     public void FilterAndGroup_EmptyInputReturnsEmptyResult()
     {
-        var result = InventoryGrouping.FilterAndGroup([], AlwaysStorable);
+        var result = InventoryGrouping.FilterAndGroup([], KeepAll);
 
         Assert.Empty(result.Deduped);
         Assert.Empty(result.BySource);
@@ -103,9 +103,73 @@ public class InventoryGroupingTests
             Entry(30, InventorySource.Armoury),
         ];
 
-        var result = InventoryGrouping.FilterAndGroup(entries, AlwaysStorable);
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
 
         var flatFromGroups = result.BySource.SelectMany(kv => kv.Value).ToHashSet();
         Assert.Equal(result.Deduped.ToHashSet(), flatFromGroups);
+    }
+
+    // --- HQ promotion ---
+
+    [Fact]
+    public void FilterAndGroup_PromotesIsHqWhenAnyCopyIsHq()
+    {
+        InventoryEntry[] entries =
+        [
+            Entry(1, InventorySource.Inventory, isHq: false),
+            Entry(1, InventorySource.Saddlebag, isHq: true),
+        ];
+
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
+
+        var only = Assert.Single(result.Deduped);
+        Assert.True(only.IsHq);
+        Assert.Equal(InventorySource.Inventory, only.Source);
+    }
+
+    [Fact]
+    public void FilterAndGroup_HqOnlyEntryStaysHq()
+    {
+        InventoryEntry[] entries =
+        [
+            Entry(1, InventorySource.Inventory, isHq: true),
+        ];
+
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
+
+        var only = Assert.Single(result.Deduped);
+        Assert.True(only.IsHq);
+    }
+
+    [Fact]
+    public void FilterAndGroup_NqOnlyEntryStaysNq()
+    {
+        InventoryEntry[] entries =
+        [
+            Entry(1, InventorySource.Inventory, isHq: false),
+            Entry(1, InventorySource.Saddlebag, isHq: false),
+        ];
+
+        var result = InventoryGrouping.FilterAndGroup(entries, KeepAll);
+
+        var only = Assert.Single(result.Deduped);
+        Assert.False(only.IsHq);
+    }
+
+    [Fact]
+    public void FilterAndGroup_FilterSeesPromotedHqFlag()
+    {
+        InventoryEntry[] entries =
+        [
+            Entry(1, InventorySource.Inventory, isHq: false),
+            Entry(1, InventorySource.Saddlebag, isHq: true),
+            Entry(2, InventorySource.Inventory, isHq: false),
+        ];
+
+        var result = InventoryGrouping.FilterAndGroup(entries, entry => entry.IsHq);
+
+        var only = Assert.Single(result.Deduped);
+        Assert.Equal(1u, only.ItemId);
+        Assert.True(only.IsHq);
     }
 }

@@ -444,7 +444,8 @@ public sealed class MainWindow : Window, IDisposable
         {
             var checkedFlag = selectedInventoryIds.Contains(entry.ItemId);
             var name = itemNames.GetValueOrDefault(entry.ItemId, $"Item #{entry.ItemId}");
-            if (ImGui.Checkbox($"{name}##i{entry.ItemId}", ref checkedFlag))
+            var rowLabel = entry.IsHq ? $"{name} HQ" : name;
+            if (ImGui.Checkbox($"{rowLabel}##i{entry.ItemId}", ref checkedFlag))
             {
                 if (checkedFlag) selectedInventoryIds.Add(entry.ItemId);
                 else selectedInventoryIds.Remove(entry.ItemId);
@@ -515,7 +516,7 @@ public sealed class MainWindow : Window, IDisposable
         duplicates = DuplicateDetection.Find(snapshot, plugin.Cabinet);
         var grouped = InventoryGrouping.FilterAndGroup(
             InventoryReader.ReadAll(),
-            plugin.Cabinet.IsStorable);
+            entry => plugin.Cabinet.IsStorable(entry.ItemId));
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
 
