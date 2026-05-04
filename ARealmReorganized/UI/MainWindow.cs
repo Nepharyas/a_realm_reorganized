@@ -14,6 +14,13 @@ namespace ARealmReorganized.UI;
 
 public sealed class MainWindow : Window, IDisposable
 {
+    private static readonly (string Label, InventorySource Source)[] InventorySectionsInDisplayOrder =
+    [
+        ("Inventory", InventorySource.Inventory),
+        ("Armoury", InventorySource.Armoury),
+        ("Saddlebag", InventorySource.Saddlebag),
+    ];
+
     private readonly Plugin plugin;
 
     private IReadOnlyList<uint> storableCandidates = Array.Empty<uint>();
@@ -426,9 +433,8 @@ public sealed class MainWindow : Window, IDisposable
 
         if (ImGui.BeginChild("##inventorylist", Vector2.Zero))
         {
-            DrawInventorySection("Inventory", InventorySource.Inventory);
-            DrawInventorySection("Armoury", InventorySource.Armoury);
-            DrawInventorySection("Saddlebag", InventorySource.Saddlebag);
+            foreach (var (label, source) in InventorySectionsInDisplayOrder)
+                DrawInventorySection(label, source);
         }
         ImGui.EndChild();
     }
