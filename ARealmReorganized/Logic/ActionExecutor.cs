@@ -35,6 +35,18 @@ public sealed class ActionExecutor : IActionExecutor
         return ActionResult.Failed;
     }
 
+    public ActionResult MoveFromRetainer(uint itemId, ulong retainerId)
+    {
+        var name = ResolveName(itemId);
+        if (plugin.Config.DryRun)
+        {
+            plugin.LogBuffer.DryRun($"[dry-run] would pull {name} (#{itemId}) from retainer {retainerId} into inventory");
+            return ActionResult.Success;
+        }
+        plugin.LogBuffer.Warn($"Move from retainer not yet implemented for {name} (#{itemId})");
+        return ActionResult.Failed;
+    }
+
     public ActionResult RemoveFromDresser(DresserItem item)
     {
         var name = ResolveName(item.ItemId);

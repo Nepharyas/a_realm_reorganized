@@ -29,6 +29,7 @@ public class DuplicateDetectionApplyTests
 
         public ActionResult MoveToArmoire(uint itemId) => ActionResult.Success;
         public ActionResult CompressSet(SetGroup set) => ActionResult.Success;
+        public ActionResult MoveFromRetainer(uint itemId, ulong retainerId) => ActionResult.Success;
     }
 
     // --- dry-run ---

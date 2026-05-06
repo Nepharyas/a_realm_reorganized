@@ -14,6 +14,7 @@ public sealed class Configuration : IPluginConfiguration
 
     public DresserCache CachedDresser { get; set; } = new();
     public CabinetCache CachedCabinet { get; set; } = new();
+    public Dictionary<ulong, RetainerInventoryCache> CachedRetainers { get; set; } = new();
 
     public void Save() => Service.PluginInterface.SavePluginConfig(this);
 }
@@ -39,4 +40,19 @@ public sealed class CabinetCache
 {
     public HashSet<uint> StoredIds { get; set; } = new();
     public DateTime RefreshedAt { get; set; } = DateTime.MinValue;
+}
+
+[Serializable]
+public sealed class RetainerInventoryCache
+{
+    public string Name { get; set; } = "";
+    public DateTime RefreshedAt { get; set; } = DateTime.MinValue;
+    public List<CachedInventoryEntry> Entries { get; set; } = new();
+}
+
+[Serializable]
+public sealed class CachedInventoryEntry
+{
+    public uint ItemId { get; set; }
+    public bool IsHq { get; set; }
 }
