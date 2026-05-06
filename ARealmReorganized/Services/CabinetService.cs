@@ -39,17 +39,19 @@ internal sealed unsafe class CabinetService : ICabinetService
         return plugin.Config.CachedCabinet.StoredIds.Contains(cabinetId);
     }
 
+    public bool IsStorable(uint itemId) =>
+        eligibility.IsEligible(itemId) && !IsAlreadyStored(itemId);
+
     public StoreResult Store(uint itemId) => StoreResult.WindowClosed;
 
     public IReadOnlyList<uint> ListStorable(IEnumerable<DresserItem> dresserItems)
     {
         var result = new List<uint>();
-        var seen = new HashSet<uint>();
-        foreach (var item in dresserItems)
+        var seenItemIds = new HashSet<uint>();
+        foreach (var dresserItem in dresserItems)
         {
-            if (!eligibility.IsEligible(item.ItemId)) continue;
-            if (IsAlreadyStored(item.ItemId)) continue;
-            if (seen.Add(item.ItemId)) result.Add(item.ItemId);
+            if (!IsStorable(dresserItem.ItemId)) continue;
+            if (seenItemIds.Add(dresserItem.ItemId)) result.Add(dresserItem.ItemId);
         }
         return result;
     }
