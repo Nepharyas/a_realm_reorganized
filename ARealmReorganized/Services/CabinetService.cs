@@ -18,6 +18,9 @@ internal sealed unsafe class CabinetService : ICabinetService
         this.eligibility = eligibility;
     }
 
+    // True when we have either a live Cabinet window open or a previously-saved snapshot of stored
+    // ids. While false, IsAlreadyStored returns false for every id (the cache is empty), so
+    // duplicate detection and "already in armoire" filtering will leak — gate UX accordingly.
     public bool IsAvailable => IsCabinetLoaded() || plugin.Config.CachedCabinet.RefreshedAt != DateTime.MinValue;
 
     public bool IsActivatable
