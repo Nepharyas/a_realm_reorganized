@@ -38,6 +38,7 @@ public sealed class MainWindow : Window, IDisposable
     private readonly HashSet<uint> selectedSetIds = new();
     private readonly HashSet<ushort> selectedDuplicateSlots = new();
     private readonly HashSet<uint> selectedInventoryIds = new();
+    private readonly Dictionary<ulong, HashSet<uint>> selectedRetainerItemsByRetainer = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
@@ -97,6 +98,12 @@ public sealed class MainWindow : Window, IDisposable
                 if (ImGui.BeginTabItem($"Sort from inventory ({inventoryStorable.Count})###inventory"))
                 {
                     DrawInventoryTab();
+                    ImGui.EndTabItem();
+                }
+                var retainerCount = plugin.Config.CachedRetainers.Count;
+                if (ImGui.BeginTabItem($"Sort from retainers ({retainerCount})###retainers"))
+                {
+                    DrawRetainersTab();
                     ImGui.EndTabItem();
                 }
                 ImGui.EndTabBar();
@@ -476,6 +483,148 @@ public sealed class MainWindow : Window, IDisposable
         }
     }
 
+    private void DrawRetainersTab()
+    {
+        DrawCabinetUnavailableBanner();
+
+        var cached = plugin.Config.CachedRetainers;
+        if (cached.Count == 0)
+        {
+            TextDisabledWrapped(
+                "No retainer data yet. Open each retainer's inventory once at the summoning bell to populate this list.");
+            return;
+        }
+
+        ImGui.PushTextWrapPos();
+        ImGui.TextColored(new Vector4(0.7f, 0.85f, 1f, 1f),
+            "Summoning bells aren't always next to an Armoire, so this happens in two steps. " +
+            "Step 1 pulls selected items from the active retainer into your inventory (limited by free inventory slots). " +
+            "Step 2 then moves those items from inventory into the Armoire. You can run them back-to-back or pause between.");
+        ImGui.PopTextWrapPos();
+        ImGui.Spacing();
+
+        var freeSlots = InventorySpace.FreeSlots();
+        var activeRetainerId = plugin.Retainers.ActiveRetainerId;
+        var addonOpen = plugin.Retainers.IsRetainerInventoryAddonOpen;
+
+        var selectedActive = selectedRetainerItemsByRetainer.TryGetValue(activeRetainerId, out var setForActive)
+            ? setForActive.Count : 0;
+        var willPull = plugin.Config.DryRun ? selectedActive : System.Math.Min(selectedActive, freeSlots);
+
+        if (selectedActive > 0 && !plugin.Config.DryRun && selectedActive > freeSlots)
+        {
+            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+                $"Inventory has {freeSlots} free slots — will pull {willPull} of {selectedActive} this round. Clear space and re-run for the rest.");
+        }
+
+        var canStep1 = plugin.Config.DryRun || (addonOpen && activeRetainerId != 0 && willPull > 0);
+        ImGui.BeginDisabled(!canStep1);
+        if (ImGui.Button($"Step 1: pull {willPull} items from active retainer to inventory"))
+        {
+            if (selectedRetainerItemsByRetainer.TryGetValue(activeRetainerId, out var sel))
+            {
+                var done = 0;
+                foreach (var itemId in sel)
+                {
+                    if (done >= willPull) break;
+                    if (plugin.Executor.MoveFromRetainer(itemId, activeRetainerId) == ActionResult.Success)
+                        done++;
+                }
+                plugin.SettingsWindow.OpenOnLogs();
+            }
+        }
+        ImGui.EndDisabled();
+
+        var totalSelected = 0;
+        foreach (var set in selectedRetainerItemsByRetainer.Values) totalSelected += set.Count;
+
+        ImGui.SameLine();
+        var canStep2 = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Cabinet.IsActivatable);
+        canStep2 = canStep2 && totalSelected > 0;
+        ImGui.BeginDisabled(!canStep2);
+        if (ImGui.Button($"Step 2: move selected items from inventory to Armoire"))
+        {
+            // Step 2 acts on whatever is currently in the player's inventory and matches the
+            // retainer-tab selection (intersect with current inventoryStorable, which Run-Scan refreshes).
+            var moved = 0;
+            foreach (var entry in inventoryStorable)
+            {
+                var inAnyRetainerSelection = false;
+                foreach (var set in selectedRetainerItemsByRetainer.Values)
+                {
+                    if (set.Contains(entry.ItemId)) { inAnyRetainerSelection = true; break; }
+                }
+                if (!inAnyRetainerSelection) continue;
+                if (plugin.Executor.MoveToArmoire(entry.ItemId) == ActionResult.Success) moved++;
+            }
+            plugin.SettingsWindow.OpenOnLogs();
+        }
+        ImGui.EndDisabled();
+
+        if (totalSelected > 0)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button("Clear all##retainers"))
+                selectedRetainerItemsByRetainer.Clear();
+        }
+
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##retainerlist", Vector2.Zero))
+        {
+            var now = DateTime.UtcNow;
+            foreach (var (retainerId, snap) in cached)
+            {
+                DrawRetainerSection(retainerId, snap, now, retainerId == activeRetainerId);
+            }
+        }
+        ImGui.EndChild();
+    }
+
+    private void DrawRetainerSection(ulong retainerId, RetainerInventoryCache snap, DateTime now, bool isActive)
+    {
+        var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
+        var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
+        var activeMarker = isActive ? " [active]" : "";
+        var headerLabel = $"{displayName}{activeMarker} ({snap.Entries.Count} items, refreshed {refreshedAgo} ago)###retainer{retainerId}";
+        if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        // Convert to InventoryEntry list and run through grouping helper to dedupe per-retainer
+        var entries = new List<InventoryEntry>(snap.Entries.Count);
+        foreach (var cached in snap.Entries)
+            entries.Add(new InventoryEntry(cached.ItemId, InventorySource.Retainer, cached.IsHq));
+        var grouped = InventoryGrouping.FilterAndGroup(entries, e => plugin.Cabinet.IsStorable(e.ItemId));
+
+        if (grouped.Deduped.Count == 0)
+        {
+            TextDisabledWrapped("Nothing here is currently armoire-eligible.");
+            return;
+        }
+
+        if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
+            selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
+
+        if (ImGui.Button($"Select all##retainer{retainerId}"))
+            foreach (var entry in grouped.Deduped) selection.Add(entry.ItemId);
+        ImGui.SameLine();
+        if (ImGui.Button($"Clear##retainer{retainerId}"))
+            selection.Clear();
+
+        ImGui.Spacing();
+
+        foreach (var entry in grouped.Deduped)
+        {
+            var checkedFlag = selection.Contains(entry.ItemId);
+            var name = itemNames.GetValueOrDefault(entry.ItemId, $"Item #{entry.ItemId}");
+            var rowLabel = entry.IsHq ? $"{name} HQ" : name;
+            if (ImGui.Checkbox($"{rowLabel}##r{retainerId}_{entry.ItemId}", ref checkedFlag))
+            {
+                if (checkedFlag) selection.Add(entry.ItemId);
+                else selection.Remove(entry.ItemId);
+            }
+        }
+    }
+
     private void DrawDuplicateRow(DresserItem d, string idPrefix)
     {
         var checkedFlag = selectedDuplicateSlots.Contains(d.SlotIndex);
@@ -551,6 +700,8 @@ public sealed class MainWindow : Window, IDisposable
             foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
             foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
             foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
+            foreach (var snap in plugin.Config.CachedRetainers.Values)
+                foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
 
             foreach (var itemId in allIds)
             {
