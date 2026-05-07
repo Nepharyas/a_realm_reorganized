@@ -15,10 +15,13 @@ internal sealed unsafe class RetainerCacheService
         this.plugin = plugin;
     }
 
+    // 0 unless the retainer-inventory addon is currently open. RetainerManager.LastSelectedRetainerId
+    // sticks at its previous value after the bell closes, so we gate on the addon being live.
     public ulong ActiveRetainerId
     {
         get
         {
+            if (!IsRetainerInventoryAddonOpen) return 0UL;
             var manager = RetainerManager.Instance();
             return manager == null ? 0UL : manager->LastSelectedRetainerId;
         }
