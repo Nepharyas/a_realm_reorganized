@@ -100,8 +100,8 @@ public sealed class MainWindow : Window, IDisposable
                     DrawInventoryTab();
                     ImGui.EndTabItem();
                 }
-                var retainerCount = plugin.Config.CachedRetainers.Count;
-                if (ImGui.BeginTabItem($"Sort from retainers ({retainerCount})###retainers"))
+                var retainerEligibleCount = CountEligibleAcrossRetainers();
+                if (ImGui.BeginTabItem($"Sort from retainers ({retainerEligibleCount})###retainers"))
                 {
                     DrawRetainersTab();
                     ImGui.EndTabItem();
@@ -160,6 +160,21 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
         ImGui.TextWrapped(text);
         ImGui.PopStyleColor();
+    }
+
+    private int CountEligibleAcrossRetainers()
+    {
+        var total = 0;
+        foreach (var snap in plugin.Config.CachedRetainers.Values)
+        {
+            var seen = new HashSet<uint>();
+            foreach (var entry in snap.Entries)
+            {
+                if (!plugin.Cabinet.IsStorable(entry.ItemId)) continue;
+                if (seen.Add(entry.ItemId)) total++;
+            }
+        }
+        return total;
     }
 
     private string ResolveItemName(uint itemId)
