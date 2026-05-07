@@ -11,6 +11,7 @@ internal sealed unsafe class CabinetService : ICabinetService
 {
     private readonly Plugin plugin;
     private readonly ArmoireEligibility eligibility;
+    private readonly DateTime sessionStartedAt = DateTime.UtcNow;
 
     public CabinetService(Plugin plugin, ArmoireEligibility eligibility)
     {
@@ -18,7 +19,15 @@ internal sealed unsafe class CabinetService : ICabinetService
         this.eligibility = eligibility;
     }
 
+    // True when there's *some* snapshot to look at — either live or persisted from any prior
+    // session. Used for showing "armoire: never seen yet" vs "X stored" in the status row.
     public bool IsAvailable => IsCabinetLoaded() || plugin.Config.CachedCabinet.RefreshedAt != DateTime.MinValue;
+
+    // True when the snapshot is trustworthy *right now*: either the cabinet UI is loaded (live
+    // data) or the cache was refreshed during this plugin session. The persisted cache survives
+    // across game sessions but the player can store/remove items between sessions, so a
+    // previous-day cache shouldn't gate write actions — that's what IsFresh checks.
+    public bool IsFresh => IsCabinetLoaded() || plugin.Config.CachedCabinet.RefreshedAt >= sessionStartedAt;
 
     public bool IsActivatable
     {
