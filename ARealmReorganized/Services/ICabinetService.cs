@@ -15,6 +15,7 @@ public enum StoreResult
 public interface ICabinetService
 {
     bool IsAvailable { get; }
+    bool IsFresh { get; }
     bool IsActivatable { get; }
     bool IsAlreadyStored(uint itemId);
     bool IsStorable(uint itemId);

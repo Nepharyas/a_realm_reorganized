@@ -157,7 +157,7 @@ public sealed class MainWindow : Window, IDisposable
 
     private bool DrawCabinetUnavailableBanner()
     {
-        if (plugin.Cabinet.IsAvailable) return false;
+        if (plugin.Cabinet.IsFresh) return false;
         ImGui.PushTextWrapPos();
         ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
             "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show here and apply is disabled.");
@@ -206,7 +206,7 @@ public sealed class MainWindow : Window, IDisposable
                 $"Inventory has {freeSlots} free slots — will move {willMove} of {selected} this round. Clear space and re-apply for the rest.");
         }
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
         canApply = canApply && willMove > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {willMove} items to Armoire"))
@@ -373,7 +373,7 @@ public sealed class MainWindow : Window, IDisposable
             TextDisabledWrapped($"Inventory free: {freeSlots} slots.");
         }
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Dresser.IsActivatable);
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Dresser.IsActivatable);
         canApply = canApply && willRemove > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
@@ -437,7 +437,7 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsAvailable && plugin.Cabinet.IsActivatable);
+        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable);
         canApply = canApply && selectedInventoryIds.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {selectedInventoryIds.Count} items to Armoire"))
