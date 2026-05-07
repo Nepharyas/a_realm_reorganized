@@ -515,7 +515,6 @@ public sealed class MainWindow : Window, IDisposable
 
         var freeSlots = InventorySpace.FreeSlots();
         var activeRetainerId = plugin.Retainers.ActiveRetainerId;
-        var addonOpen = plugin.Retainers.IsRetainerInventoryAddonOpen;
 
         var totalSelected = 0;
         foreach (var set in selectedRetainerItemsByRetainer.Values) totalSelected += set.Count;
@@ -527,24 +526,24 @@ public sealed class MainWindow : Window, IDisposable
                 $"Inventory has {freeSlots} free slots — will pull {willPull} of {totalSelected} this round. Clear space and re-run for the rest.");
         }
 
-        var canStep1 = plugin.Config.DryRun || (addonOpen && activeRetainerId != 0 && willPull > 0);
+        var canStep1 = plugin.Config.DryRun || willPull > 0;
         ImGui.BeginDisabled(!canStep1);
-        if (ImGui.Button($"Step 1: pull {willPull} items from active retainer to inventory"))
+        if (ImGui.Button($"Step 1: move {willPull} items from retainers to inventory"))
         {
-            // Pull only items selected for the *currently active* retainer — the game enforces
-            // that you can only write to the retainer you're summoning. Items selected from
-            // other cached retainers stay queued until you summon those retainers and re-run.
-            if (selectedRetainerItemsByRetainer.TryGetValue(activeRetainerId, out var sel))
+            // Iterate every retainer with selections; the executor is responsible for
+            // summoning the right retainer when each MoveFromRetainer call lands.
+            var done = 0;
+            foreach (var (retainerId, sel) in selectedRetainerItemsByRetainer)
             {
-                var done = 0;
+                if (done >= willPull) break;
                 foreach (var itemId in sel)
                 {
                     if (done >= willPull) break;
-                    if (plugin.Executor.MoveFromRetainer(itemId, activeRetainerId) == ActionResult.Success)
+                    if (plugin.Executor.MoveFromRetainer(itemId, retainerId) == ActionResult.Success)
                         done++;
                 }
-                plugin.SettingsWindow.OpenOnLogs();
             }
+            plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
 
