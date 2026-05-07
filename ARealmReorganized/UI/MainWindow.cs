@@ -592,24 +592,20 @@ public sealed class MainWindow : Window, IDisposable
         if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
             selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
 
-        var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
-        var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
-        var activeMarker = isActive ? " [active]" : "";
-        var selectionMarker = selection.Count > 0 ? $", {selection.Count} selected" : "";
-        var headerLabel = $"{displayName}{activeMarker} ({snap.Entries.Count} items{selectionMarker}, refreshed {refreshedAgo} ago)###retainer{retainerId}";
-        if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
-
-        // Convert to InventoryEntry list and run through grouping helper to dedupe per-retainer
+        // Filter + dedupe up front so the header count matches what's actually listed below.
         var entries = new List<InventoryEntry>(snap.Entries.Count);
         foreach (var cached in snap.Entries)
             entries.Add(new InventoryEntry(cached.ItemId, InventorySource.Retainer, cached.IsHq));
         var grouped = InventoryGrouping.FilterAndGroup(entries, e => plugin.Cabinet.IsStorable(e.ItemId));
 
-        if (grouped.Deduped.Count == 0)
-        {
-            TextDisabledWrapped("Nothing here is currently armoire-eligible.");
-            return;
-        }
+        if (grouped.Deduped.Count == 0) return;
+
+        var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
+        var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
+        var activeMarker = isActive ? " [active]" : "";
+        var selectionMarker = selection.Count > 0 ? $", {selection.Count} selected" : "";
+        var headerLabel = $"{displayName}{activeMarker} ({grouped.Deduped.Count} eligible{selectionMarker}, refreshed {refreshedAgo} ago)###retainer{retainerId}";
+        if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (ImGui.Button($"Select all##retainer{retainerId}"))
             foreach (var entry in grouped.Deduped) selection.Add(entry.ItemId);
