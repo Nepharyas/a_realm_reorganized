@@ -162,6 +162,16 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopStyleColor();
     }
 
+    private string ResolveItemName(uint itemId)
+    {
+        if (itemNames.TryGetValue(itemId, out var cached)) return cached;
+        var sheet = Service.DataManager.GetExcelSheet<Item>();
+        var row = sheet?.GetRowOrDefault(itemId);
+        var resolved = row?.Name.ExtractText() ?? $"Item #{itemId}";
+        itemNames[itemId] = resolved;
+        return resolved;
+    }
+
     private bool DrawCabinetUnavailableBanner()
     {
         if (plugin.Cabinet.IsFresh) return false;
@@ -235,7 +245,7 @@ public sealed class MainWindow : Window, IDisposable
             foreach (var id in storableCandidates)
             {
                 var checkedFlag = selectedStorableIds.Contains(id);
-                var name = itemNames.GetValueOrDefault(id, $"Item #{id}");
+                var name = ResolveItemName(id);
                 if (ImGui.Checkbox($"{name}##s{id}", ref checkedFlag))
                 {
                     if (checkedFlag) selectedStorableIds.Add(id);
@@ -473,7 +483,7 @@ public sealed class MainWindow : Window, IDisposable
         foreach (var entry in itemsInSection)
         {
             var checkedFlag = selectedInventoryIds.Contains(entry.ItemId);
-            var name = itemNames.GetValueOrDefault(entry.ItemId, $"Item #{entry.ItemId}");
+            var name = ResolveItemName(entry.ItemId);
             var rowLabel = entry.IsHq ? $"{name} HQ" : name;
             if (ImGui.Checkbox($"{rowLabel}##i{entry.ItemId}", ref checkedFlag))
             {
@@ -615,7 +625,7 @@ public sealed class MainWindow : Window, IDisposable
         foreach (var entry in grouped.Deduped)
         {
             var checkedFlag = selection.Contains(entry.ItemId);
-            var name = itemNames.GetValueOrDefault(entry.ItemId, $"Item #{entry.ItemId}");
+            var name = ResolveItemName(entry.ItemId);
             var rowLabel = entry.IsHq ? $"{name} HQ" : name;
             if (ImGui.Checkbox($"{rowLabel}##r{retainerId}_{entry.ItemId}", ref checkedFlag))
             {
@@ -638,7 +648,7 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.SameLine(0, 2);
         DrawDyeSwatch(d.Stain1, d.SlotIndex * 2 + 1);
         ImGui.SameLine();
-        var name = itemNames.GetValueOrDefault(d.ItemId, $"Item #{d.ItemId}");
+        var name = ResolveItemName(d.ItemId);
         ImGui.TextUnformatted(name);
     }
 
