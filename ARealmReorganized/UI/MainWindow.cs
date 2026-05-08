@@ -166,15 +166,16 @@ public sealed class MainWindow : Window, IDisposable
     {
         var total = 0;
         foreach (var snap in plugin.Config.CachedRetainers.Values)
-        {
-            var seen = new HashSet<uint>();
-            foreach (var entry in snap.Entries)
-            {
-                if (!plugin.Cabinet.IsStorable(entry.ItemId)) continue;
-                if (seen.Add(entry.ItemId)) total++;
-            }
-        }
+            total += GroupRetainerSnapshot(snap).Deduped.Count;
         return total;
+    }
+
+    private InventoryGrouping.Result GroupRetainerSnapshot(RetainerInventoryCache snap)
+    {
+        var entries = new List<InventoryEntry>(snap.Entries.Count);
+        foreach (var cached in snap.Entries)
+            entries.Add(new InventoryEntry(cached.ItemId, InventorySource.Retainer, cached.IsHq));
+        return InventoryGrouping.FilterAndGroup(entries, e => plugin.Cabinet.IsStorable(e.ItemId));
     }
 
     private string ResolveItemName(uint itemId)
@@ -602,11 +603,7 @@ public sealed class MainWindow : Window, IDisposable
     private void DrawRetainerSection(ulong retainerId, RetainerInventoryCache snap, DateTime now, bool isActive)
     {
         // Filter + dedupe up front so the header count matches what's actually listed below.
-        var entries = new List<InventoryEntry>(snap.Entries.Count);
-        foreach (var cached in snap.Entries)
-            entries.Add(new InventoryEntry(cached.ItemId, InventorySource.Retainer, cached.IsHq));
-        var grouped = InventoryGrouping.FilterAndGroup(entries, e => plugin.Cabinet.IsStorable(e.ItemId));
-
+        var grouped = GroupRetainerSnapshot(snap);
         if (grouped.Deduped.Count == 0) return;
 
         // Read existing selection if any; we only allocate one when the user actually adds.
