@@ -512,6 +512,17 @@ public sealed class MainWindow : Window, IDisposable
         DrawCabinetUnavailableBanner();
 
         var cached = plugin.Config.CachedRetainers;
+
+        // Drop selection state for retainers that have been fired (cache pruned them already).
+        if (selectedRetainerItemsByRetainer.Count > 0)
+        {
+            List<ulong>? stale = null;
+            foreach (var key in selectedRetainerItemsByRetainer.Keys)
+                if (!cached.ContainsKey(key)) (stale ??= new()).Add(key);
+            if (stale != null)
+                foreach (var key in stale) selectedRetainerItemsByRetainer.Remove(key);
+        }
+
         if (cached.Count == 0)
         {
             TextDisabledWrapped(

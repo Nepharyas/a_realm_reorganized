@@ -50,6 +50,8 @@ internal sealed unsafe class RetainerCacheService
         var manager = RetainerManager.Instance();
         if (manager == null) return;
 
+        PruneFiredRetainers(manager);
+
         var activeId = manager->LastSelectedRetainerId;
         if (activeId == 0) return;
         if (!IsRetainerInventoryAddonOpen) return;
@@ -77,6 +79,31 @@ internal sealed unsafe class RetainerCacheService
             RefreshedAt = now,
             Entries = newEntries,
         };
+        plugin.Config.Save();
+    }
+
+    private void PruneFiredRetainers(RetainerManager* manager)
+    {
+        if (plugin.Config.CachedRetainers.Count == 0) return;
+
+        var liveIds = new HashSet<ulong>();
+        var span = manager->Retainers;
+        for (int i = 0; i < span.Length; i++)
+        {
+            var id = span[i].RetainerId;
+            if (id != 0) liveIds.Add(id);
+        }
+
+        // If RetainerManager hasn't populated yet (e.g. just-logged-in), don't prune — we
+        // can't tell apart "no retainers visible right now" from "retainer was fired".
+        if (liveIds.Count == 0) return;
+
+        var stale = new List<ulong>();
+        foreach (var key in plugin.Config.CachedRetainers.Keys)
+            if (!liveIds.Contains(key)) stale.Add(key);
+
+        if (stale.Count == 0) return;
+        foreach (var key in stale) plugin.Config.CachedRetainers.Remove(key);
         plugin.Config.Save();
     }
 
