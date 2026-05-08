@@ -89,12 +89,8 @@ internal sealed unsafe class RetainerCacheService
         if (plugin.Config.CachedRetainers.Count == 0) return;
 
         var liveIds = new HashSet<ulong>();
-        var span = manager->Retainers;
-        for (int i = 0; i < span.Length; i++)
-        {
-            var id = span[i].RetainerId;
-            if (id != 0) liveIds.Add(id);
-        }
+        foreach (var retainer in manager->Retainers)
+            if (retainer.RetainerId != 0) liveIds.Add(retainer.RetainerId);
 
         // If RetainerManager hasn't populated yet (e.g. just-logged-in), don't prune — we
         // can't tell apart "no retainers visible right now" from "retainer was fired".
