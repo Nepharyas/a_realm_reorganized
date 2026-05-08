@@ -39,6 +39,9 @@ public sealed class MainWindow : Window, IDisposable
     private readonly HashSet<ushort> selectedDuplicateSlots = new();
     private readonly HashSet<uint> selectedInventoryIds = new();
     private readonly Dictionary<ulong, HashSet<uint>> selectedRetainerItemsByRetainer = new();
+    // Items the most recent dry-run Step 1 "would have" moved into inventory. Lets dry-run
+    // Step 2 simulate the next stage even though no items actually changed bags.
+    private readonly HashSet<uint> dryRunPendingArmoireMoves = new();
     private bool hasScanned;
 
     public MainWindow(Plugin plugin) : base("A Realm Reorganized##main")
@@ -160,6 +163,33 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
         ImGui.TextWrapped(text);
         ImGui.PopStyleColor();
+    }
+
+    private int CountInventoryItemsMatchingRetainerSelection()
+    {
+        var queuedItemIds = new HashSet<uint>();
+        foreach (var set in selectedRetainerItemsByRetainer.Values)
+            foreach (var itemId in set) queuedItemIds.Add(itemId);
+        if (queuedItemIds.Count == 0) return 0;
+
+        var matched = 0;
+        foreach (var entry in inventoryStorable)
+            if (queuedItemIds.Contains(entry.ItemId)) matched++;
+        return matched;
+    }
+
+    private string? ResolveStep2DisabledReason(int step2Count)
+    {
+        if (step2Count == 0)
+        {
+            return plugin.Config.DryRun
+                ? "Run Step 1 first to queue items for the armoire."
+                : "No queued items are in your inventory yet — run Step 1 at the bell.";
+        }
+        if (plugin.Config.DryRun) return null;
+        if (!plugin.Cabinet.IsFresh) return "Open the Armoire once this session to load stored-item data.";
+        if (!plugin.Cabinet.IsActivatable) return "Stand near an Armoire to enable.";
+        return null;
     }
 
     private int CountEligibleAcrossRetainers()
@@ -560,6 +590,9 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canStep1);
         if (ImGui.Button($"Step 1: move {willPull} items from retainers to inventory"))
         {
+            // Fresh cycle: forget anything queued by a previous dry-run pass.
+            if (plugin.Config.DryRun) dryRunPendingArmoireMoves.Clear();
+
             // Iterate every retainer with selections; the executor is responsible for
             // summoning the right retainer when each MoveFromRetainer call lands.
             var done = 0;
@@ -569,8 +602,9 @@ public sealed class MainWindow : Window, IDisposable
                 foreach (var itemId in sel)
                 {
                     if (done >= willPull) break;
-                    if (plugin.Executor.MoveFromRetainer(itemId, retainerId) == ActionResult.Success)
-                        done++;
+                    if (plugin.Executor.MoveFromRetainer(itemId, retainerId) != ActionResult.Success) continue;
+                    done++;
+                    if (plugin.Config.DryRun) dryRunPendingArmoireMoves.Add(itemId);
                 }
             }
             plugin.SettingsWindow.OpenOnLogs();
@@ -578,29 +612,45 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.EndDisabled();
 
         ImGui.SameLine();
-        var canStep2 = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable);
-        canStep2 = canStep2 && totalSelected > 0;
+        // Step 2 acts on what's actually in your bags right now (real mode) or on what
+        // dry-run Step 1 just queued (dry-run mode).
+        var step2Count = plugin.Config.DryRun
+            ? dryRunPendingArmoireMoves.Count
+            : CountInventoryItemsMatchingRetainerSelection();
+        var step2DisabledReason = ResolveStep2DisabledReason(step2Count);
+        var canStep2 = step2DisabledReason == null;
         ImGui.BeginDisabled(!canStep2);
-        if (ImGui.Button($"Step 2: move {totalSelected} selected items from inventory to Armoire"))
+        if (ImGui.Button($"Step 2: move {step2Count} items from inventory to Armoire"))
         {
-            var queuedItemIds = new HashSet<uint>();
-            foreach (var set in selectedRetainerItemsByRetainer.Values)
-                foreach (var itemId in set) queuedItemIds.Add(itemId);
-
-            foreach (var entry in inventoryStorable)
+            if (plugin.Config.DryRun)
             {
-                if (!queuedItemIds.Contains(entry.ItemId)) continue;
-                plugin.Executor.MoveToArmoire(entry.ItemId);
+                foreach (var itemId in dryRunPendingArmoireMoves)
+                    plugin.Executor.MoveToArmoire(itemId);
+                dryRunPendingArmoireMoves.Clear();
+            }
+            else
+            {
+                var queuedItemIds = new HashSet<uint>();
+                foreach (var set in selectedRetainerItemsByRetainer.Values)
+                    foreach (var itemId in set) queuedItemIds.Add(itemId);
+                foreach (var entry in inventoryStorable)
+                    if (queuedItemIds.Contains(entry.ItemId))
+                        plugin.Executor.MoveToArmoire(entry.ItemId);
             }
             plugin.SettingsWindow.OpenOnLogs();
         }
         ImGui.EndDisabled();
+        if (step2DisabledReason != null && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(step2DisabledReason);
 
         if (totalSelected > 0)
         {
             ImGui.SameLine();
             if (ImGui.Button("Clear all##retainers"))
+            {
                 selectedRetainerItemsByRetainer.Clear();
+                dryRunPendingArmoireMoves.Clear();
+            }
         }
 
         ImGui.Separator();
@@ -754,6 +804,7 @@ public sealed class MainWindow : Window, IDisposable
         selectedSetIds.Clear();
         selectedDuplicateSlots.Clear();
         selectedInventoryIds.Clear();
+        dryRunPendingArmoireMoves.Clear();
         hasScanned = true;
         var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
