@@ -98,13 +98,8 @@ internal sealed unsafe class RetainerCacheService
         // can't tell apart "no retainers visible right now" from "retainer was fired".
         if (liveIds.Count == 0) return;
 
-        var stale = new List<ulong>();
-        foreach (var key in plugin.Config.CachedRetainers.Keys)
-            if (!liveIds.Contains(key)) stale.Add(key);
-
-        if (stale.Count == 0) return;
-        foreach (var key in stale) plugin.Config.CachedRetainers.Remove(key);
-        plugin.Config.Save();
+        var removed = DictionaryPrune.RemoveKeysWhere(plugin.Config.CachedRetainers, id => !liveIds.Contains(id));
+        if (removed > 0) plugin.Config.Save();
     }
 
     private static bool EntriesEqual(IReadOnlyList<CachedInventoryEntry> a, IReadOnlyList<CachedInventoryEntry> b)
