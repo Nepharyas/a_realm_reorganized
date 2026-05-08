@@ -566,14 +566,13 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.BeginDisabled(!canStep2);
         if (ImGui.Button($"Step 2: move {totalSelected} selected items from inventory to Armoire"))
         {
+            var queuedItemIds = new HashSet<uint>();
+            foreach (var set in selectedRetainerItemsByRetainer.Values)
+                foreach (var itemId in set) queuedItemIds.Add(itemId);
+
             foreach (var entry in inventoryStorable)
             {
-                var inAnyRetainerSelection = false;
-                foreach (var set in selectedRetainerItemsByRetainer.Values)
-                {
-                    if (set.Contains(entry.ItemId)) { inAnyRetainerSelection = true; break; }
-                }
-                if (!inAnyRetainerSelection) continue;
+                if (!queuedItemIds.Contains(entry.ItemId)) continue;
                 plugin.Executor.MoveToArmoire(entry.ItemId);
             }
             plugin.SettingsWindow.OpenOnLogs();
