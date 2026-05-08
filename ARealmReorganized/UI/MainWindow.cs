@@ -603,8 +603,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         var freeSlots = InventorySpace.FreeSlots();
 
-        var totalSelected = 0;
-        foreach (var set in selectedRetainerItemsByRetainer.Values) totalSelected += set.Count;
+        var totalSelected = selectedRetainerItemsByRetainer.Values.Sum(set => set.Count);
         var willPull = plugin.Config.DryRun ? totalSelected : System.Math.Min(totalSelected, freeSlots);
 
         if (!plugin.Config.DryRun && totalSelected > freeSlots)
