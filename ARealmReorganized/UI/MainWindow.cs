@@ -697,7 +697,8 @@ public sealed class MainWindow : Window, IDisposable
         var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
         var activeMarker = isActive ? " [active]" : "";
         var selectionMarker = selectedCount > 0 ? $", {selectedCount} selected" : "";
-        var headerLabel = $"{displayName}{activeMarker} ({grouped.Deduped.Count} eligible{selectionMarker}, refreshed {refreshedAgo} ago)###retainer{retainerId}";
+        var status = $"{grouped.Deduped.Count} eligible{selectionMarker}, refreshed {refreshedAgo} ago";
+        var headerLabel = $"{displayName}{activeMarker} ({status})###retainer{retainerId}";
         if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (ImGui.Button($"Select all##retainer{retainerId}"))
