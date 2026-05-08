@@ -601,9 +601,6 @@ public sealed class MainWindow : Window, IDisposable
 
     private void DrawRetainerSection(ulong retainerId, RetainerInventoryCache snap, DateTime now, bool isActive)
     {
-        if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
-            selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
-
         // Filter + dedupe up front so the header count matches what's actually listed below.
         var entries = new List<InventoryEntry>(snap.Entries.Count);
         foreach (var cached in snap.Entries)
@@ -612,32 +609,46 @@ public sealed class MainWindow : Window, IDisposable
 
         if (grouped.Deduped.Count == 0) return;
 
+        // Read existing selection if any; we only allocate one when the user actually adds.
+        selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection);
+        var selectedCount = selection?.Count ?? 0;
+
         var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
         var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
         var activeMarker = isActive ? " [active]" : "";
-        var selectionMarker = selection.Count > 0 ? $", {selection.Count} selected" : "";
+        var selectionMarker = selectedCount > 0 ? $", {selectedCount} selected" : "";
         var headerLabel = $"{displayName}{activeMarker} ({grouped.Deduped.Count} eligible{selectionMarker}, refreshed {refreshedAgo} ago)###retainer{retainerId}";
         if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (ImGui.Button($"Select all##retainer{retainerId}"))
-            foreach (var entry in grouped.Deduped) selection.Add(entry.ItemId);
+        {
+            var sel = EnsureRetainerSelection(retainerId);
+            foreach (var entry in grouped.Deduped) sel.Add(entry.ItemId);
+        }
         ImGui.SameLine();
         if (ImGui.Button($"Clear##retainer{retainerId}"))
-            selection.Clear();
+            selection?.Clear();
 
         ImGui.Spacing();
 
         foreach (var entry in grouped.Deduped)
         {
-            var checkedFlag = selection.Contains(entry.ItemId);
+            var checkedFlag = selection?.Contains(entry.ItemId) ?? false;
             var name = ResolveItemName(entry.ItemId);
             var rowLabel = entry.IsHq ? $"{name} HQ" : name;
             if (ImGui.Checkbox($"{rowLabel}##r{retainerId}_{entry.ItemId}", ref checkedFlag))
             {
-                if (checkedFlag) selection.Add(entry.ItemId);
-                else selection.Remove(entry.ItemId);
+                if (checkedFlag) EnsureRetainerSelection(retainerId).Add(entry.ItemId);
+                else selection?.Remove(entry.ItemId);
             }
         }
+    }
+
+    private HashSet<uint> EnsureRetainerSelection(ulong retainerId)
+    {
+        if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
+            selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
+        return selection;
     }
 
     private void DrawDuplicateRow(DresserItem d, string idPrefix)
