@@ -23,7 +23,6 @@ public sealed class SettingsWindow : Window, IDisposable
 
     public void OpenOnLogs()
     {
-        if (!plugin.Config.DryRun) return;
         IsOpen = true;
         jumpToLogs = true;
     }
