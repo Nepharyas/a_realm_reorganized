@@ -539,15 +539,18 @@ public sealed class MainWindow : Window, IDisposable
         if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         foreach (var entry in itemsInSection)
+            DrawSelectableItemRow(entry, "i", selectedInventoryIds);
+    }
+
+    private void DrawSelectableItemRow(InventoryEntry entry, string idPrefix, HashSet<uint> selection)
+    {
+        var checkedFlag = selection.Contains(entry.ItemId);
+        var name = ResolveItemName(entry.ItemId);
+        var rowLabel = entry.IsHq ? $"{name} HQ" : name;
+        if (ImGui.Checkbox($"{rowLabel}##{idPrefix}{entry.ItemId}", ref checkedFlag))
         {
-            var checkedFlag = selectedInventoryIds.Contains(entry.ItemId);
-            var name = ResolveItemName(entry.ItemId);
-            var rowLabel = entry.IsHq ? $"{name} HQ" : name;
-            if (ImGui.Checkbox($"{rowLabel}##i{entry.ItemId}", ref checkedFlag))
-            {
-                if (checkedFlag) selectedInventoryIds.Add(entry.ItemId);
-                else selectedInventoryIds.Remove(entry.ItemId);
-            }
+            if (checkedFlag) selection.Add(entry.ItemId);
+            else selection.Remove(entry.ItemId);
         }
     }
 
@@ -679,59 +682,36 @@ public sealed class MainWindow : Window, IDisposable
         var grouped = GroupRetainerSnapshot(snap);
         if (grouped.Deduped.Count == 0) return;
 
-        // Read existing selection if any; we only allocate one when the user actually adds.
-        selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection);
+        if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
+            selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
 
         // Drop selected ids that are no longer eligible (e.g. user removed the item from the
         // retainer in-game, or it just got stored in the armoire by another character).
-        if (selection != null && selection.Count > 0)
+        if (selection.Count > 0)
         {
             var stillEligible = new HashSet<uint>(grouped.Deduped.Count);
             foreach (var entry in grouped.Deduped) stillEligible.Add(entry.ItemId);
             selection.RemoveWhere(id => !stillEligible.Contains(id));
         }
 
-        var selectedCount = selection?.Count ?? 0;
-
         var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
         var refreshedAgo = snap.RefreshedAt == DateTime.MinValue ? "?" : Humanize(now - snap.RefreshedAt);
         var activeMarker = isActive ? " [active]" : "";
-        var selectionMarker = selectedCount > 0 ? $", {selectedCount} selected" : "";
+        var selectionMarker = selection.Count > 0 ? $", {selection.Count} selected" : "";
         var status = $"{grouped.Deduped.Count} eligible{selectionMarker}, refreshed {refreshedAgo} ago";
         var headerLabel = $"{displayName}{activeMarker} ({status})###retainer{retainerId}";
         if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (ImGui.Button($"Select all##retainer{retainerId}"))
-        {
-            var sel = EnsureRetainerSelection(retainerId);
-            foreach (var entry in grouped.Deduped) sel.Add(entry.ItemId);
-        }
+            foreach (var entry in grouped.Deduped) selection.Add(entry.ItemId);
         ImGui.SameLine();
         if (ImGui.Button($"Clear##retainer{retainerId}"))
-            selection?.Clear();
+            selection.Clear();
 
         ImGui.Spacing();
 
         foreach (var entry in grouped.Deduped)
-        {
-            var checkedFlag = selection?.Contains(entry.ItemId) ?? false;
-            var name = ResolveItemName(entry.ItemId);
-            var rowLabel = entry.IsHq ? $"{name} HQ" : name;
-            if (ImGui.Checkbox($"{rowLabel}##r{retainerId}_{entry.ItemId}", ref checkedFlag))
-            {
-                if (checkedFlag) EnsureRetainerSelection(retainerId).Add(entry.ItemId);
-                else selection?.Remove(entry.ItemId);
-            }
-        }
-    }
-
-    // Used on the *add* side only — Clear/Remove paths use the null-conditional `selection?.`
-    // pattern so we don't allocate an empty set just to delete from nothing.
-    private HashSet<uint> EnsureRetainerSelection(ulong retainerId)
-    {
-        if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
-            selectedRetainerItemsByRetainer[retainerId] = selection = new HashSet<uint>();
-        return selection;
+            DrawSelectableItemRow(entry, $"r{retainerId}_", selection);
     }
 
     private void DrawDuplicateRow(DresserItem d, string idPrefix)
