@@ -178,9 +178,14 @@ public sealed class MainWindow : Window, IDisposable
         return InventoryGrouping.FilterAndGroup(entries, e => plugin.Cabinet.IsStorable(e.ItemId));
     }
 
+    // Cap is well above the eligible-set size for any plausible session; if exceeded we just
+    // wipe and rebuild on demand rather than tracking LRU.
+    private const int ItemNameCacheCap = 5000;
+
     private string ResolveItemName(uint itemId)
     {
         if (itemNames.TryGetValue(itemId, out var cached)) return cached;
+        if (itemNames.Count >= ItemNameCacheCap) itemNames.Clear();
         var resolved = ItemNames.Resolve(itemId);
         itemNames[itemId] = resolved;
         return resolved;
