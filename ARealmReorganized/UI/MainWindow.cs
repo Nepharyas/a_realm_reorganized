@@ -624,6 +624,16 @@ public sealed class MainWindow : Window, IDisposable
 
         // Read existing selection if any; we only allocate one when the user actually adds.
         selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection);
+
+        // Drop selected ids that are no longer eligible (e.g. user removed the item from the
+        // retainer in-game, or it just got stored in the armoire by another character).
+        if (selection != null && selection.Count > 0)
+        {
+            var stillEligible = new HashSet<uint>(grouped.Deduped.Count);
+            foreach (var entry in grouped.Deduped) stillEligible.Add(entry.ItemId);
+            selection.RemoveWhere(id => !stillEligible.Contains(id));
+        }
+
         var selectedCount = selection?.Count ?? 0;
 
         var displayName = string.IsNullOrEmpty(snap.Name) ? $"Retainer #{retainerId}" : snap.Name;
