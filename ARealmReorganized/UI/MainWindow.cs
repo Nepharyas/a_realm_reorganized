@@ -189,7 +189,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         if (plugin.Cabinet.IsFresh) return false;
         ImGui.PushTextWrapPos();
-        ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+        ImGui.TextColored(UiColors.Warning,
             "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show here and apply is disabled.");
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
@@ -232,7 +232,7 @@ public sealed class MainWindow : Window, IDisposable
 
         if (selected > 0 && !plugin.Config.DryRun && selected > freeSlots)
         {
-            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+            ImGui.TextColored(UiColors.Warning,
                 $"Inventory has {freeSlots} free slots — will move {willMove} of {selected} this round. Clear space and re-apply for the rest.");
         }
 
@@ -311,7 +311,7 @@ public sealed class MainWindow : Window, IDisposable
                 var msg = capReason == "prisms"
                     ? $"Need {selectedSetsList.Count} prisms total — you have {prisms}. Compressing {setsToCompress.Count} this round."
                     : $"Inventory has {freeSlots} free slots — compressing {setsToCompress.Count} of {selectedSetsList.Count} sets this round.";
-                ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), msg);
+                ImGui.TextColored(UiColors.Warning, msg);
             }
         }
 
@@ -395,7 +395,7 @@ public sealed class MainWindow : Window, IDisposable
 
         if (selected > 0 && !plugin.Config.DryRun && selected > freeSlots)
         {
-            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+            ImGui.TextColored(UiColors.Warning,
                 $"Inventory has {freeSlots} free slots — will remove {willRemove} of {selected} this round. Clear space and re-apply for the rest.");
         }
         else if (selected > 0 && !plugin.Config.DryRun)
@@ -519,7 +519,7 @@ public sealed class MainWindow : Window, IDisposable
         }
 
         ImGui.PushTextWrapPos();
-        ImGui.TextColored(new Vector4(0.7f, 0.85f, 1f, 1f),
+        ImGui.TextColored(UiColors.Info,
             "Summoning bells aren't always next to an Armoire, so this happens in two steps. " +
             "Step 1 pulls selected items from the active retainer into your inventory (limited by free inventory slots). " +
             "Step 2 then moves those items from inventory into the Armoire. You can run them back-to-back or pause between.");
@@ -535,7 +535,7 @@ public sealed class MainWindow : Window, IDisposable
 
         if (!plugin.Config.DryRun && totalSelected > freeSlots)
         {
-            ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f),
+            ImGui.TextColored(UiColors.Warning,
                 $"Inventory has {freeSlots} free slots — will pull {willPull} of {totalSelected} this round. Clear space and re-run for the rest.");
         }
 
