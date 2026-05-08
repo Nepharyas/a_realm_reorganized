@@ -58,16 +58,35 @@ internal sealed unsafe class RetainerCacheService
         if (retainer == null) return;
 
         var entries = RetainerInventoryReader.ReadActive();
-        var snapshot = new RetainerInventoryCache
+        var newEntries = new List<CachedInventoryEntry>(entries.Count);
+        foreach (var entry in entries)
+            newEntries.Add(new CachedInventoryEntry { ItemId = entry.ItemId, IsHq = entry.IsHq });
+
+        // If the snapshot is byte-identical to the cached one, just bump the in-memory
+        // RefreshedAt (so "X ago" stays accurate in the UI) and skip the disk write.
+        if (plugin.Config.CachedRetainers.TryGetValue(activeId, out var existing)
+            && EntriesEqual(existing.Entries, newEntries))
+        {
+            existing.RefreshedAt = now;
+            return;
+        }
+
+        plugin.Config.CachedRetainers[activeId] = new RetainerInventoryCache
         {
             Name = retainer->NameString,
             RefreshedAt = now,
-            Entries = new List<CachedInventoryEntry>(entries.Count),
+            Entries = newEntries,
         };
-        foreach (var entry in entries)
-            snapshot.Entries.Add(new CachedInventoryEntry { ItemId = entry.ItemId, IsHq = entry.IsHq });
-
-        plugin.Config.CachedRetainers[activeId] = snapshot;
         plugin.Config.Save();
+    }
+
+    private static bool EntriesEqual(IReadOnlyList<CachedInventoryEntry> a, IReadOnlyList<CachedInventoryEntry> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].ItemId != b[i].ItemId || a[i].IsHq != b[i].IsHq) return false;
+        }
+        return true;
     }
 }
