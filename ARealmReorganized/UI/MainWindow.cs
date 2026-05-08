@@ -556,16 +556,7 @@ public sealed class MainWindow : Window, IDisposable
         DrawCabinetUnavailableBanner();
 
         var cached = plugin.Config.CachedRetainers;
-
-        // Drop selection state for retainers that have been fired (cache pruned them already).
-        if (selectedRetainerItemsByRetainer.Count > 0)
-        {
-            List<ulong>? stale = null;
-            foreach (var key in selectedRetainerItemsByRetainer.Keys)
-                if (!cached.ContainsKey(key)) (stale ??= new()).Add(key);
-            if (stale != null)
-                foreach (var key in stale) selectedRetainerItemsByRetainer.Remove(key);
-        }
+        PruneSelectionsForMissingRetainers();
 
         if (cached.Count == 0)
         {
@@ -582,8 +573,29 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
 
+        DrawRetainersActionBar();
+        ImGui.Separator();
+
+        if (ImGui.BeginChild("##retainerlist", Vector2.Zero))
+        {
+            var now = DateTime.UtcNow;
+            var activeRetainerId = plugin.Retainers.ActiveRetainerId;
+            foreach (var (retainerId, snap) in cached)
+                DrawRetainerSection(retainerId, snap, now, retainerId == activeRetainerId);
+        }
+        ImGui.EndChild();
+    }
+
+    private void PruneSelectionsForMissingRetainers()
+    {
+        if (selectedRetainerItemsByRetainer.Count == 0) return;
+        var cached = plugin.Config.CachedRetainers;
+        DictionaryPrune.RemoveKeysWhere(selectedRetainerItemsByRetainer, key => !cached.ContainsKey(key));
+    }
+
+    private void DrawRetainersActionBar()
+    {
         var freeSlots = InventorySpace.FreeSlots();
-        var activeRetainerId = plugin.Retainers.ActiveRetainerId;
 
         var totalSelected = 0;
         foreach (var set in selectedRetainerItemsByRetainer.Values) totalSelected += set.Count;
@@ -659,18 +671,6 @@ public sealed class MainWindow : Window, IDisposable
                 dryRunPendingArmoireMoves.Clear();
             }
         }
-
-        ImGui.Separator();
-
-        if (ImGui.BeginChild("##retainerlist", Vector2.Zero))
-        {
-            var now = DateTime.UtcNow;
-            foreach (var (retainerId, snap) in cached)
-            {
-                DrawRetainerSection(retainerId, snap, now, retainerId == activeRetainerId);
-            }
-        }
-        ImGui.EndChild();
     }
 
     private void DrawRetainerSection(ulong retainerId, RetainerInventoryCache snap, DateTime now, bool isActive)
