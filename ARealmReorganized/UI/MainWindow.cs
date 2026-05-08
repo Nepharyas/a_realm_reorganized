@@ -165,11 +165,17 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopStyleColor();
     }
 
+    private HashSet<uint> FlattenRetainerSelections()
+    {
+        var ids = new HashSet<uint>();
+        foreach (var set in selectedRetainerItemsByRetainer.Values)
+            foreach (var itemId in set) ids.Add(itemId);
+        return ids;
+    }
+
     private int CountInventoryItemsMatchingRetainerSelection()
     {
-        var queuedItemIds = new HashSet<uint>();
-        foreach (var set in selectedRetainerItemsByRetainer.Values)
-            foreach (var itemId in set) queuedItemIds.Add(itemId);
+        var queuedItemIds = FlattenRetainerSelections();
         if (queuedItemIds.Count == 0) return 0;
 
         var matched = 0;
@@ -633,9 +639,7 @@ public sealed class MainWindow : Window, IDisposable
             }
             else
             {
-                var queuedItemIds = new HashSet<uint>();
-                foreach (var set in selectedRetainerItemsByRetainer.Values)
-                    foreach (var itemId in set) queuedItemIds.Add(itemId);
+                var queuedItemIds = FlattenRetainerSelections();
                 foreach (var entry in inventoryStorable)
                     if (queuedItemIds.Contains(entry.ItemId))
                         plugin.Executor.MoveToArmoire(entry.ItemId);
