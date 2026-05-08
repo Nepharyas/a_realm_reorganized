@@ -165,6 +165,10 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopStyleColor();
     }
 
+    // Dry-run is the universal "always allow the click" bypass; every write-action button
+    // checks `DryRun || (its specific gates)`. This keeps the bypass in one place.
+    private bool DryRunOr(bool gate) => plugin.Config.DryRun || gate;
+
     private HashSet<uint> FlattenRetainerSelections()
     {
         var ids = new HashSet<uint>();
@@ -281,7 +285,7 @@ public sealed class MainWindow : Window, IDisposable
                 $"Inventory has {freeSlots} free slots — will move {willMove} of {selected} this round. Clear space and re-apply for the rest.");
         }
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        var canApply = DryRunOr(plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
         canApply = canApply && willMove > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {willMove} items to Armoire"))
@@ -360,7 +364,7 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
+        var canApply = DryRunOr(plugin.Cabinet.IsActivatable && plugin.Dresser.IsActivatable);
         canApply = canApply && setsToCompress.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: compress {setsToCompress.Count} sets"))
@@ -448,7 +452,7 @@ public sealed class MainWindow : Window, IDisposable
             TextDisabledWrapped($"Inventory free: {freeSlots} slots.");
         }
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Dresser.IsActivatable);
+        var canApply = DryRunOr(plugin.Cabinet.IsFresh && plugin.Dresser.IsActivatable);
         canApply = canApply && willRemove > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
@@ -512,7 +516,7 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        var canApply = plugin.Config.DryRun || (plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable);
+        var canApply = DryRunOr(plugin.Cabinet.IsFresh && plugin.Cabinet.IsActivatable);
         canApply = canApply && selectedInventoryIds.Count > 0;
         ImGui.BeginDisabled(!canApply);
         if (ImGui.Button($"Apply: move {selectedInventoryIds.Count} items to Armoire"))
@@ -610,7 +614,7 @@ public sealed class MainWindow : Window, IDisposable
                 $"Inventory has {freeSlots} free slots — will pull {willPull} of {totalSelected} this round. Clear space and re-run for the rest.");
         }
 
-        var canStep1 = plugin.Config.DryRun || willPull > 0;
+        var canStep1 = DryRunOr(willPull > 0);
         ImGui.BeginDisabled(!canStep1);
         if (ImGui.Button($"Step 1: move {willPull} items from retainers to inventory"))
         {
