@@ -180,9 +180,7 @@ public sealed class MainWindow : Window, IDisposable
     private string ResolveItemName(uint itemId)
     {
         if (itemNames.TryGetValue(itemId, out var cached)) return cached;
-        var sheet = Service.DataManager.GetExcelSheet<Item>();
-        var row = sheet?.GetRowOrDefault(itemId);
-        var resolved = row?.Name.ExtractText() ?? $"Item #{itemId}";
+        var resolved = ItemNames.Resolve(itemId);
         itemNames[itemId] = resolved;
         return resolved;
     }
@@ -711,22 +709,13 @@ public sealed class MainWindow : Window, IDisposable
         inventoryBySource = grouped.BySource;
 
         itemNames.Clear();
-        var itemSheet = Service.DataManager.GetExcelSheet<Item>();
-        if (itemSheet is not null)
-        {
-            var allIds = new HashSet<uint>(storableCandidates);
-            foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
-            foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
-            foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
-            foreach (var snap in plugin.Config.CachedRetainers.Values)
-                foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
-
-            foreach (var itemId in allIds)
-            {
-                var row = itemSheet.GetRowOrDefault(itemId);
-                if (row is not null) itemNames[itemId] = row.Value.Name.ExtractText();
-            }
-        }
+        var allIds = new HashSet<uint>(storableCandidates);
+        foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
+        foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
+        foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
+        foreach (var snap in plugin.Config.CachedRetainers.Values)
+            foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
+        foreach (var itemId in allIds) itemNames[itemId] = ItemNames.Resolve(itemId);
 
         selectedStorableIds.Clear();
         selectedSetIds.Clear();

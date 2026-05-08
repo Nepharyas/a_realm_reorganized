@@ -1,5 +1,5 @@
 using ARealmReorganized.Models;
-using Lumina.Excel.Sheets;
+using ARealmReorganized.Services;
 
 namespace ARealmReorganized.Logic;
 
@@ -14,7 +14,7 @@ public sealed class ActionExecutor : IActionExecutor
 
     public ActionResult MoveToArmoire(uint itemId)
     {
-        var name = ResolveName(itemId);
+        var name = ItemNames.Resolve(itemId);
         if (plugin.Config.DryRun)
         {
             plugin.LogBuffer.DryRun($"[dry-run] would move {name} (#{itemId}) to armoire");
@@ -37,7 +37,7 @@ public sealed class ActionExecutor : IActionExecutor
 
     public ActionResult MoveFromRetainer(uint itemId, ulong retainerId)
     {
-        var name = ResolveName(itemId);
+        var name = ItemNames.Resolve(itemId);
         if (plugin.Config.DryRun)
         {
             plugin.LogBuffer.DryRun($"[dry-run] would pull {name} (#{itemId}) from retainer {retainerId} into inventory");
@@ -49,7 +49,7 @@ public sealed class ActionExecutor : IActionExecutor
 
     public ActionResult RemoveFromDresser(DresserItem item)
     {
-        var name = ResolveName(item.ItemId);
+        var name = ItemNames.Resolve(item.ItemId);
         if (plugin.Config.DryRun)
         {
             plugin.LogBuffer.DryRun($"[dry-run] would remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
@@ -62,10 +62,4 @@ public sealed class ActionExecutor : IActionExecutor
         return ok ? ActionResult.Success : ActionResult.Failed;
     }
 
-    private static string ResolveName(uint itemId)
-    {
-        var sheet = Service.DataManager.GetExcelSheet<Item>();
-        var row = sheet?.GetRowOrDefault(itemId);
-        return row?.Name.ExtractText() ?? $"item {itemId}";
-    }
 }
