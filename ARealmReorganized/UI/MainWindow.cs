@@ -521,7 +521,7 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PushTextWrapPos();
         ImGui.TextColored(UiColors.Info,
             "Summoning bells aren't always next to an Armoire, so this happens in two steps. " +
-            "Step 1 pulls selected items from the active retainer into your inventory (limited by free inventory slots). " +
+            "Step 1 moves your selected retainer items into your inventory (limited by free inventory slots). " +
             "Step 2 then moves those items from inventory into the Armoire. You can run them back-to-back or pause between.");
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
