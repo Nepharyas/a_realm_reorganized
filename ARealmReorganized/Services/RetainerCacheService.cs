@@ -38,8 +38,10 @@ internal sealed unsafe class RetainerCacheService
     }
 
     public bool IsRetainerInventoryAddonOpen =>
-        Service.GameGui.GetAddonByName(AddonInventoryRetainer, FirstAddonInstance) != nint.Zero
-        || Service.GameGui.GetAddonByName(AddonInventoryRetainerLarge, FirstAddonInstance) != nint.Zero;
+        IsAddonOpen(AddonInventoryRetainer) || IsAddonOpen(AddonInventoryRetainerLarge);
+
+    private static bool IsAddonOpen(string addonName) =>
+        Service.GameGui.GetAddonByName(addonName, FirstAddonInstance) != nint.Zero;
 
     public void RefreshCacheIfLive()
     {
