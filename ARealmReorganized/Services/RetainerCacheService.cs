@@ -6,6 +6,16 @@ namespace ARealmReorganized.Services;
 
 internal sealed unsafe class RetainerCacheService
 {
+    // Standard retainer-inventory addon (35 slots per page).
+    private const string AddonInventoryRetainer = "InventoryRetainer";
+
+    // Expanded retainer-inventory addon (35 slots per page, large mode).
+    private const string AddonInventoryRetainerLarge = "InventoryRetainerLarge";
+
+    // GameGui.GetAddonByName takes a 1-based addon-instance index; 1 = the first instance,
+    // which is what we want for these singleton addons.
+    private const int FirstAddonInstance = 1;
+
     private readonly Plugin plugin;
     private DateTime lastCheck = DateTime.MinValue;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(2);
@@ -28,8 +38,8 @@ internal sealed unsafe class RetainerCacheService
     }
 
     public bool IsRetainerInventoryAddonOpen =>
-        Service.GameGui.GetAddonByName("InventoryRetainer", 1) != IntPtr.Zero
-        || Service.GameGui.GetAddonByName("InventoryRetainerLarge", 1) != IntPtr.Zero;
+        Service.GameGui.GetAddonByName(AddonInventoryRetainer, FirstAddonInstance) != IntPtr.Zero
+        || Service.GameGui.GetAddonByName(AddonInventoryRetainerLarge, FirstAddonInstance) != IntPtr.Zero;
 
     public void RefreshCacheIfLive()
     {
