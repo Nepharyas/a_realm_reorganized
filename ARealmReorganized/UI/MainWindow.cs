@@ -242,6 +242,9 @@ public sealed class MainWindow : Window, IDisposable
         {
             plugin.Config.DryRun = dryRun;
             plugin.Config.Save();
+            // Drop the dry-run-only pending queue; it would otherwise carry stale state
+            // across the toggle and confuse the Step 2 count in real mode.
+            dryRunPendingArmoireMoves.Clear();
         }
     }
 
