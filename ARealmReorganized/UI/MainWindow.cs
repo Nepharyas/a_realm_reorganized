@@ -724,6 +724,8 @@ public sealed class MainWindow : Window, IDisposable
         }
     }
 
+    // Used on the *add* side only — Clear/Remove paths use the null-conditional `selection?.`
+    // pattern so we don't allocate an empty set just to delete from nothing.
     private HashSet<uint> EnsureRetainerSelection(ulong retainerId)
     {
         if (!selectedRetainerItemsByRetainer.TryGetValue(retainerId, out var selection))
