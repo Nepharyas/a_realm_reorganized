@@ -231,15 +231,14 @@ public sealed class MainWindow : Window, IDisposable
         return resolved;
     }
 
-    private bool DrawCabinetUnavailableBanner()
+    private void DrawCabinetUnavailableBanner()
     {
-        if (plugin.Cabinet.IsFresh) return false;
+        if (plugin.Cabinet.IsFresh) return;
         ImGui.PushTextWrapPos();
         ImGui.TextColored(UiColors.Warning,
             "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show here and apply is disabled.");
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
-        return true;
     }
 
     private void DrawScanRow()
