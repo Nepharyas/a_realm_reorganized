@@ -1,21 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ARealmReorganized.Services;
 
 internal static class DictionaryPrune
 {
     // Removes every key matching the predicate. Returns the number of removed entries.
-    // Two passes are intentional: mutating a Dictionary while iterating its Keys throws
-    // InvalidOperationException, so we collect the matching keys first, then remove them.
+    // ToList materializes the keys before the removal loop — mutating a Dictionary while
+    // iterating its Keys throws InvalidOperationException.
     public static int RemoveKeysWhere<TKey, TValue>(
         Dictionary<TKey, TValue> dict,
         Func<TKey, bool> shouldRemove) where TKey : notnull
     {
-        var toRemove = new List<TKey>();
-        foreach (var key in dict.Keys)
-            if (shouldRemove(key)) toRemove.Add(key);
-        foreach (var key in toRemove) dict.Remove(key);
-        return toRemove.Count;
+        var keysToRemove = dict.Keys.Where(shouldRemove).ToList();
+        foreach (var key in keysToRemove) dict.Remove(key);
+        return keysToRemove.Count;
     }
 }
