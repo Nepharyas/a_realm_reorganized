@@ -191,6 +191,14 @@ public sealed class MainWindow : Window, IDisposable
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
 
+        // Hand the highlighter the union of every itemId we'd flag as armoire-eligible.
+        var armoireEligible = new HashSet<uint>(storableCandidates);
+        foreach (var entry in inventoryStorable) armoireEligible.Add(entry.ItemId);
+        foreach (var snap in plugin.Config.CachedRetainers.Values)
+            foreach (var cached in snap.Entries)
+                if (plugin.Cabinet.IsStorable(cached.ItemId)) armoireEligible.Add(cached.ItemId);
+        plugin.Highlighter.SetArmoireEligible(armoireEligible);
+
         itemNames.Clear();
         var allIds = new HashSet<uint>(storableCandidates);
         foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
