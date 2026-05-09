@@ -21,7 +21,6 @@ public sealed class Plugin : IDalamudPlugin
     public ICabinetService Cabinet { get; }
     public IGlamourDresserService Dresser { get; }
     public ArmoireEligibility Eligibility { get; }
-    public IActionExecutor Executor { get; }
     internal RetainerCacheService Retainers { get; }
     public PluginLogBuffer LogBuffer { get; } = new();
 
@@ -35,7 +34,6 @@ public sealed class Plugin : IDalamudPlugin
         LogBuffer.Add($"Armoire-eligible items in current game data: {Eligibility.Count}");
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
-        Executor = new ActionExecutor(this);
         Retainers = new RetainerCacheService(this);
 
         MainWindow = new MainWindow(this);

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using ARealmReorganized.Models;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace ARealmReorganized.Services;
 
@@ -15,38 +14,10 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         this.plugin = plugin;
     }
 
-    public bool IsAvailable
-    {
-        get
-        {
-            if (HasLiveData()) return true;
-            return plugin.Config.CachedDresser.Slots.Count > 0;
-        }
-    }
-
-    public bool IsActivatable
-    {
-        get
-        {
-            var module = AgentModule.Instance();
-            if (module == null) return false;
-            var agent = (AgentMiragePrismPrismBox*)module->GetAgentByInternalId(AgentId.MiragePrismPrismBox);
-            return agent != null && agent->IsActivatable();
-        }
-    }
-
     public IReadOnlyList<DresserItem> Snapshot()
     {
         if (HasLiveData()) return ReadLive();
         return ReadFromCache();
-    }
-
-    public bool Remove(DresserItem item)
-    {
-        var manager = MirageManager.Instance();
-        if (manager == null) return false;
-        manager->RestorePrismBoxItem(item.SlotIndex);
-        return true;
     }
 
     private DateTime lastCheck = DateTime.MinValue;
