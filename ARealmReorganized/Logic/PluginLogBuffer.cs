@@ -4,17 +4,9 @@ using System.Text;
 
 namespace ARealmReorganized.Logic;
 
-public enum LogLevel
-{
-    Info,
-    DryRun,
-    Warning,
-}
-
 public sealed class LogEntry
 {
     public required DateTime Timestamp { get; init; }
-    public required LogLevel Level { get; init; }
     public required string Message { get; init; }
 
     public string Format() => $"{Timestamp:HH:mm:ss} {Message}";
@@ -26,12 +18,11 @@ public sealed class PluginLogBuffer
     private readonly LinkedList<LogEntry> entries = new();
     private readonly object gate = new();
 
-    public void Add(string message, LogLevel level = LogLevel.Info)
+    public void Add(string message)
     {
         var entry = new LogEntry
         {
             Timestamp = DateTime.Now,
-            Level = level,
             Message = message,
         };
         lock (gate)
@@ -39,24 +30,6 @@ public sealed class PluginLogBuffer
             entries.AddLast(entry);
             while (entries.Count > Capacity) entries.RemoveFirst();
         }
-    }
-
-    public void Info(string message)
-    {
-        Service.Log.Information(message);
-        Add(message, LogLevel.Info);
-    }
-
-    public void DryRun(string message)
-    {
-        Service.Log.Information(message);
-        Add(message, LogLevel.DryRun);
-    }
-
-    public void Warn(string message)
-    {
-        Service.Log.Warning(message);
-        Add(message, LogLevel.Warning);
     }
 
     public IReadOnlyList<LogEntry> Snapshot()

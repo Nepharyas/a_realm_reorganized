@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Numerics;
-using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
@@ -9,13 +7,10 @@ namespace ARealmReorganized.UI.Tabs;
 
 internal sealed class DuplicatesTab
 {
-    private readonly Plugin plugin;
     private readonly MainWindow main;
-    private readonly HashSet<ushort> selectedSlots = new();
 
-    public DuplicatesTab(Plugin plugin, MainWindow main)
+    public DuplicatesTab(MainWindow main)
     {
-        this.plugin = plugin;
         this.main = main;
     }
 
@@ -24,11 +19,9 @@ internal sealed class DuplicatesTab
         get
         {
             var dupeCount = main.Duplicates.MultipleCopies.Count + main.Duplicates.ArmoireRedundant.Count;
-            return $"Remove duplicates ({dupeCount})###duplicates";
+            return $"Duplicates ({dupeCount})###duplicates";
         }
     }
-
-    public void Reset() => selectedSlots.Clear();
 
     public void Draw()
     {
@@ -41,52 +34,6 @@ internal sealed class DuplicatesTab
             return;
         }
 
-        if (ImGui.Button("Select duplicates (keep one of each)"))
-        {
-            foreach (var d in duplicates.ArmoireRedundant) selectedSlots.Add(d.SlotIndex);
-            uint lastId = 0;
-            var keptOne = false;
-            foreach (var d in duplicates.MultipleCopies)
-            {
-                if (d.ItemId != lastId) { lastId = d.ItemId; keptOne = false; }
-                if (!keptOne) { keptOne = true; continue; }
-                selectedSlots.Add(d.SlotIndex);
-            }
-        }
-        ImGui.SameLine();
-        if (ImGui.Button("Clear##dupes")) selectedSlots.Clear();
-
-        ImGui.Spacing();
-
-        var selected = selectedSlots.Count;
-        var freeSlots = InventorySpace.FreeSlots();
-        var willRemove = main.ClampForApply(selected);
-
-        MainWindow.DrawInventoryCapWarning(freeSlots, "remove", willRemove, selected, "apply");
-        if (selected > 0 && !plugin.Config.DryRun && selected <= freeSlots)
-            MainWindow.TextDisabledWrapped($"Inventory free: {freeSlots} slots.");
-
-        var canApply = main.DryRunOr(plugin.Cabinet.IsFresh && plugin.Dresser.IsActivatable);
-        canApply = canApply && willRemove > 0;
-        ImGui.BeginDisabled(!canApply);
-        if (ImGui.Button($"Apply: remove {willRemove} duplicates"))
-        {
-            var dryRun = plugin.Config.DryRun;
-            var (newDuplicates, removed) = DuplicateDetection.Apply(
-                duplicates, selectedSlots, willRemove, plugin.Executor);
-
-            // Don't update the UI when doing a DryRun — the log opens instead.
-            if (!dryRun)
-            {
-                main.SetDuplicates(newDuplicates);
-                foreach (var slot in removed)
-                    selectedSlots.Remove(slot);
-            }
-            plugin.SettingsWindow.OpenOnLogs();
-        }
-        ImGui.EndDisabled();
-        ImGui.Separator();
-
         if (ImGui.BeginChild("##dupelist", Vector2.Zero))
         {
             if (duplicates.ArmoireRedundant.Count > 0)
@@ -94,40 +41,28 @@ internal sealed class DuplicatesTab
                 MainWindow.TextDisabledWrapped(
                     $"Already in armoire ({duplicates.ArmoireRedundant.Count}) — undyed copies you can drop:");
                 foreach (var d in duplicates.ArmoireRedundant)
-                {
-                    DrawDuplicateRow(d, "a");
-                }
+                    DrawDuplicateRow(d);
             }
 
             if (duplicates.MultipleCopies.Count > 0)
             {
                 if (duplicates.ArmoireRedundant.Count > 0) ImGui.Spacing();
                 MainWindow.TextDisabledWrapped(
-                    $"Multiple copies in dresser ({duplicates.MultipleCopies.Count}) — pick which to keep:");
+                    $"Multiple copies in dresser ({duplicates.MultipleCopies.Count}):");
                 foreach (var d in duplicates.MultipleCopies)
-                {
-                    DrawDuplicateRow(d, "m");
-                }
+                    DrawDuplicateRow(d);
             }
         }
         ImGui.EndChild();
     }
 
-    private void DrawDuplicateRow(DresserItem d, string idPrefix)
+    private void DrawDuplicateRow(DresserItem d)
     {
-        var checkedFlag = selectedSlots.Contains(d.SlotIndex);
-        if (ImGui.Checkbox($"##{idPrefix}{d.SlotIndex}", ref checkedFlag))
-        {
-            if (checkedFlag) selectedSlots.Add(d.SlotIndex);
-            else selectedSlots.Remove(d.SlotIndex);
-        }
-        ImGui.SameLine();
         DrawDyeSwatch(d.Stain0, d.SlotIndex * 2);
         ImGui.SameLine(0, 2);
         DrawDyeSwatch(d.Stain1, d.SlotIndex * 2 + 1);
         ImGui.SameLine();
-        var name = main.ResolveItemName(d.ItemId);
-        ImGui.TextUnformatted(name);
+        ImGui.TextUnformatted(main.ResolveItemName(d.ItemId));
     }
 
     private static void DrawDyeSwatch(byte stainId, int discriminator)

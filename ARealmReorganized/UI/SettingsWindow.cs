@@ -1,6 +1,5 @@
 using System;
 using System.Numerics;
-using ARealmReorganized.Logic;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 
@@ -10,9 +9,8 @@ public sealed class SettingsWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
     private bool autoScrollLogs = true;
-    private bool jumpToLogs;
 
-    public SettingsWindow(Plugin plugin) : base("A Realm Reorganized — Settings##arrsettings")
+    public SettingsWindow(Plugin plugin) : base("A Realm Reorganized — Logs##arrsettings")
     {
         this.plugin = plugin;
         Size = new Vector2(560, 360);
@@ -21,51 +19,7 @@ public sealed class SettingsWindow : Window, IDisposable
 
     public void Dispose() { }
 
-    public void OpenOnLogs()
-    {
-        IsOpen = true;
-        jumpToLogs = true;
-    }
-
     public override void Draw()
-    {
-        if (!ImGui.BeginTabBar("##settingstabs")) return;
-
-        if (ImGui.BeginTabItem("General"))
-        {
-            DrawGeneral();
-            ImGui.EndTabItem();
-        }
-
-        var logsFlags = jumpToLogs ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
-        if (ImGui.BeginTabItem("Logs", logsFlags))
-        {
-            DrawLogs();
-            ImGui.EndTabItem();
-        }
-        if (jumpToLogs) jumpToLogs = false;
-
-        ImGui.EndTabBar();
-    }
-
-    private void DrawGeneral()
-    {
-        var threshold = plugin.Config.MultiRoundThreshold;
-        ImGui.SetNextItemWidth(150);
-        if (ImGui.SliderInt("Stop multi-round transfer when free inventory drops below", ref threshold, 1, 30))
-        {
-            plugin.Config.MultiRoundThreshold = threshold;
-            plugin.Config.Save();
-        }
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
-        ImGui.TextWrapped(
-            "When applying a Move or Compress that exceeds your free slots, plugin will run several rounds " +
-            "(transferring as many as it can, waiting for inventory to clear, then continuing). It pauses when " +
-            "free slots drop below the threshold above to avoid slow trickle transfers.");
-        ImGui.PopStyleColor();
-    }
-
-    private void DrawLogs()
     {
         if (ImGui.Button("Clear")) plugin.LogBuffer.Clear();
         ImGui.SameLine();
@@ -77,22 +31,7 @@ public sealed class SettingsWindow : Window, IDisposable
 
         if (ImGui.BeginChild("##logarea", Vector2.Zero, true))
         {
-            plugin.LogBuffer.ForEach(entry =>
-            {
-                var text = entry.Format();
-                switch (entry.Level)
-                {
-                    case LogLevel.DryRun:
-                        ImGui.TextColored(UiColors.DryRun, text);
-                        break;
-                    case LogLevel.Warning:
-                        ImGui.TextColored(UiColors.Warning, text);
-                        break;
-                    default:
-                        ImGui.TextUnformatted(text);
-                        break;
-                }
-            });
+            plugin.LogBuffer.ForEach(entry => ImGui.TextUnformatted(entry.Format()));
             if (autoScrollLogs && ImGui.GetScrollY() >= ImGui.GetScrollMaxY() - 1)
                 ImGui.SetScrollHereY(1f);
         }

@@ -48,10 +48,10 @@ public sealed class MainWindow : Window, IDisposable
             ShowTooltip = () => ImGui.SetTooltip("Settings"),
         });
 
-        armoireTab = new ArmoireTab(plugin, this);
-        compressTab = new CompressTab(plugin, this);
-        duplicatesTab = new DuplicatesTab(plugin, this);
-        inventoryTab = new InventoryTab(plugin, this);
+        armoireTab = new ArmoireTab(this);
+        compressTab = new CompressTab(this);
+        duplicatesTab = new DuplicatesTab(this);
+        inventoryTab = new InventoryTab(this);
         retainersTab = new RetainersTab(plugin, this);
     }
 
@@ -64,15 +64,11 @@ public sealed class MainWindow : Window, IDisposable
     internal IReadOnlyDictionary<InventorySource, IReadOnlyList<InventoryEntry>> InventoryBySource => inventoryBySource;
     internal DuplicateDetection.Result Duplicates => duplicates;
 
-    // The duplicates tab updates the result after a real-mode apply (slots removed); rest of
-    // the scan state is read-only for tabs.
-    internal void SetDuplicates(DuplicateDetection.Result newDuplicates) => duplicates = newDuplicates;
-
     public override void Draw()
     {
         ImGui.TextWrapped(
-            "Tidy up your glam collection! Scan your Glamour Dresser for items that can be moved to the Armoire, " +
-            "detect sets that can be regrouped, free some inventory/retainers/chocobo space.");
+            "Tidy up your glam collection! Scans your Glamour Dresser for items that can be moved to the Armoire, " +
+            "detects sets that can be regrouped, and helps you free inventory/retainers/chocobo space.");
         ImGui.Separator();
 
         DrawServiceStatus();
@@ -131,8 +127,7 @@ public sealed class MainWindow : Window, IDisposable
             ? "armoire: never seen yet"
             : $"armoire: {Humanize(DateTime.UtcNow - cabinetCache.RefreshedAt)} ago ({cabinetCache.StoredIds.Count} stored)";
 
-        TextDisabledWrapped(
-            $"{dresserMsg}    {cabinetMsg}    inventory: {InventorySpace.FreeSlots()} free, {InventorySpace.GlamourPrismCount()} prisms");
+        TextDisabledWrapped($"{dresserMsg}    {cabinetMsg}");
     }
 
     internal static string Humanize(TimeSpan ts)
@@ -148,24 +143,6 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
         ImGui.TextWrapped(text);
         ImGui.PopStyleColor();
-    }
-
-    // Dry-run is the universal "always allow the click" bypass; every write-action button
-    // checks `DryRun || (its specific gates)`. This keeps the bypass in one place.
-    internal bool DryRunOr(bool gate) => plugin.Config.DryRun || gate;
-
-    // In dry-run we let the user "act on" everything they selected so the preview is honest.
-    // In real mode we cap to free inventory slots so we don't queue moves the bag can't accept.
-    internal int ClampForApply(int total) =>
-        plugin.Config.DryRun ? total : Math.Min(total, InventorySpace.FreeSlots());
-
-    // Shared cap-warning shown when the user's selection exceeds free inventory slots in real
-    // mode. Emits nothing when the cap doesn't bite (will == total) or in dry-run.
-    internal static void DrawInventoryCapWarning(int freeSlots, string verb, int will, int total, string retryWord)
-    {
-        if (will >= total) return;
-        ImGui.TextColored(UiColors.Warning,
-            $"Inventory has {freeSlots} free slots — will {verb} {will} of {total} this round. Clear space and re-{retryWord} for the rest.");
     }
 
     // Cap is well above the eligible-set size for any plausible session; if exceeded we just
@@ -186,37 +163,20 @@ public sealed class MainWindow : Window, IDisposable
         if (plugin.Cabinet.IsFresh) return;
         ImGui.PushTextWrapPos();
         ImGui.TextColored(UiColors.Warning,
-            "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show here and apply is disabled.");
+            "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show in the lists below.");
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
     }
 
-    internal void DrawSelectableItemRow(InventoryEntry entry, string idPrefix, HashSet<uint> selection)
+    internal void DrawItemRow(InventoryEntry entry)
     {
-        var checkedFlag = selection.Contains(entry.ItemId);
         var name = ResolveItemName(entry.ItemId);
-        var rowLabel = entry.IsHq ? $"{name} HQ" : name;
-        if (ImGui.Checkbox($"{rowLabel}##{idPrefix}{entry.ItemId}", ref checkedFlag))
-        {
-            if (checkedFlag) selection.Add(entry.ItemId);
-            else selection.Remove(entry.ItemId);
-        }
+        ImGui.TextUnformatted(entry.IsHq ? $"{name} HQ" : name);
     }
 
     private void DrawScanRow()
     {
         if (ImGui.Button("Scan")) RunScan();
-        ImGui.SameLine();
-
-        var dryRun = plugin.Config.DryRun;
-        if (ImGui.Checkbox("Dry run (preview only — never moves items)", ref dryRun))
-        {
-            plugin.Config.DryRun = dryRun;
-            plugin.Config.Save();
-            // Drop the dry-run-only pending queue; it would otherwise carry stale state
-            // across the toggle and confuse the Step 2 count in real mode.
-            retainersTab.OnDryRunToggled();
-        }
     }
 
     private void RunScan()
@@ -240,11 +200,6 @@ public sealed class MainWindow : Window, IDisposable
             foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
         foreach (var itemId in allIds) itemNames[itemId] = ItemNames.Resolve(itemId);
 
-        armoireTab.Reset();
-        compressTab.Reset();
-        duplicatesTab.Reset();
-        inventoryTab.Reset();
-        retainersTab.Reset();
         hasScanned = true;
         var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
