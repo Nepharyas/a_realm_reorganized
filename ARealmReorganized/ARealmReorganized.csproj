@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors>Nepharyas</Authors>
     <Version>0.0.1</Version>
-    <Description>Auto-cleans the Glamour Dresser by moving 7.5 armoire-eligible items and grouping set pieces.</Description>
+    <Description>Surfaces Glamour Dresser items eligible for the 7.5 Armoire, plus partial sets and duplicates.</Description>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>

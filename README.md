@@ -1,19 +1,18 @@
 # A Realm Reorganized
 
-Dalamud plugin for FFXIV that helps you clean up the Glamour Dresser, because 800 slots is clearly not enough for glam enthusiasts. Moves what it can into the new 7.5 Armoire, groups stray set pieces back together (and shows you what sets are incomplete), and removes duplicates for your Dresser.
+Dalamud plugin for FFXIV that helps you clean up the Glamour Dresser, because 800 slots is clearly not enough for glam enthusiasts. Shows what can be moved into the new 7.5 Armoire, points out partial sets you could regroup, and flags duplicates with their dyes so you know which copy to keep.
 
 ## Status
 
-Still WIP. Builds, the UI loads, the scans run — the actual reads/writes against the in-game cabinet and dresser are still ongoing. Currently polishing what I can.
+WIP. Builds, the UI loads, the scans run and report. In-game highlight overlays are next on the list.
 
-## What it'll do
+## What it does
 
-- Scan the Glamour Dresser and flag items that can now live in the 7.5 Armoire instead
-- Detect partial sets (multiple pieces sharing an item series) and complete sets for regrouping
-- Detect duplicates and dyes associated to them so you know which one to remove
-- Show you everything as a preview first — nothing moves until you click Apply
-- Caches items currently in your Dresser and Armoire for ease of use
-- Soon (TM): auto sort from your inventory/armoury
+- Scans the Glamour Dresser and lists items that can now live in the 7.5 Armoire instead
+- Detects partial sets (multiple pieces sharing an item series) and complete sets
+- Detects duplicates and shows the dyes on each copy so you know which to drop
+- Reads your inventory/armoury/saddlebag and retainers, and surfaces what's also armoire-storable from there
+- Caches dresser/armoire/retainer state across sessions
 
 
 ## Install
@@ -22,7 +21,7 @@ Not in the official Dalamud plugin repo yet. Once it's there, you'll be able to 
 
 ## Usage
 
-`/arr` opens the main window.
+`/arr` opens the main window. Click Scan, browse the tabs.
 
 ## Tips
 
