@@ -12,7 +12,7 @@ internal sealed class ArmoireTab
         this.main = main;
     }
 
-    public string TabLabel => $"Move to Armoire ({main.StorableCandidates.Count})###armoire";
+    public string TabLabel => $"Dresser → Armoire ({main.StorableCandidates.Count})###armoire";
 
     public void Draw()
     {

@@ -13,7 +13,7 @@ internal sealed class CompressTab
         this.main = main;
     }
 
-    public string TabLabel => $"Compress into sets ({main.SetGroups.Count})###compress";
+    public string TabLabel => $"Sets ({main.SetGroups.Count})###compress";
 
     public void Draw()
     {

@@ -19,7 +19,7 @@ internal sealed class DuplicatesTab
         get
         {
             var dupeCount = main.Duplicates.MultipleCopies.Count + main.Duplicates.ArmoireRedundant.Count;
-            return $"Remove duplicates ({dupeCount})###duplicates";
+            return $"Duplicates ({dupeCount})###duplicates";
         }
     }
 

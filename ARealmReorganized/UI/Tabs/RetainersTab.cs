@@ -18,7 +18,7 @@ internal sealed class RetainersTab
         this.main = main;
     }
 
-    public string TabLabel => $"Sort from retainers ({CountEligibleAcrossRetainers()})###retainers";
+    public string TabLabel => $"Retainers → Armoire ({CountEligibleAcrossRetainers()})###retainers";
 
     public void Draw()
     {

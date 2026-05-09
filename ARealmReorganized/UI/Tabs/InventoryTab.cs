@@ -20,7 +20,7 @@ internal sealed class InventoryTab
         this.main = main;
     }
 
-    public string TabLabel => $"Sort from inventory ({main.InventoryStorable.Count})###inventory";
+    public string TabLabel => $"Inventory → Armoire ({main.InventoryStorable.Count})###inventory";
 
     public void Draw()
     {
