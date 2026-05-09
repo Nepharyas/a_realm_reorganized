@@ -67,8 +67,8 @@ public sealed class MainWindow : Window, IDisposable
     public override void Draw()
     {
         ImGui.TextWrapped(
-            "Tidy up your glam collection! Scan your Glamour Dresser for items that can be moved to the Armoire, " +
-            "detect sets that can be regrouped, free some inventory/retainers/chocobo space.");
+            "Tidy up your glam collection! Scans your Glamour Dresser for items that can be moved to the Armoire, " +
+            "detects sets that can be regrouped, and helps you free inventory/retainers/chocobo space.");
         ImGui.Separator();
 
         DrawServiceStatus();
@@ -200,11 +200,6 @@ public sealed class MainWindow : Window, IDisposable
             foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
         foreach (var itemId in allIds) itemNames[itemId] = ItemNames.Resolve(itemId);
 
-        armoireTab.Reset();
-        compressTab.Reset();
-        duplicatesTab.Reset();
-        inventoryTab.Reset();
-        retainersTab.Reset();
         hasScanned = true;
         var scanMsg =
             $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +

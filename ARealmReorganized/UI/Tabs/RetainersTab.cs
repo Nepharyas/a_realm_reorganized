@@ -20,8 +20,6 @@ internal sealed class RetainersTab
 
     public string TabLabel => $"Sort from retainers ({CountEligibleAcrossRetainers()})###retainers";
 
-    public void Reset() { }
-
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();

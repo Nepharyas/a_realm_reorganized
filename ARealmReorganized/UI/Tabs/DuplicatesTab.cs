@@ -23,8 +23,6 @@ internal sealed class DuplicatesTab
         }
     }
 
-    public void Reset() { }
-
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();

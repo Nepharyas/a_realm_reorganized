@@ -15,8 +15,6 @@ internal sealed class CompressTab
 
     public string TabLabel => $"Compress into sets ({main.SetGroups.Count})###compress";
 
-    public void Reset() { }
-
     public void Draw()
     {
         var sets = main.SetGroups;
@@ -41,7 +39,7 @@ internal sealed class CompressTab
             if (partialSets.Count > 0)
             {
                 if (completeSets.Count > 0) ImGui.Spacing();
-                MainWindow.TextDisabledWrapped($"Partial sets ({partialSets.Count}) — finish to compress:");
+                MainWindow.TextDisabledWrapped($"Incomplete sets ({partialSets.Count}):");
                 foreach (var g in partialSets)
                     ImGui.TextUnformatted($"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces");
             }

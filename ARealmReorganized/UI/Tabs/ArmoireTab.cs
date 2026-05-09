@@ -14,8 +14,6 @@ internal sealed class ArmoireTab
 
     public string TabLabel => $"Move to Armoire ({main.StorableCandidates.Count})###armoire";
 
-    public void Reset() { }
-
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();

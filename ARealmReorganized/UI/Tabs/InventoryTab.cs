@@ -22,8 +22,6 @@ internal sealed class InventoryTab
 
     public string TabLabel => $"Sort from inventory ({main.InventoryStorable.Count})###inventory";
 
-    public void Reset() { }
-
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();
