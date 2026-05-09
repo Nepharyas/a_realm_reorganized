@@ -6,10 +6,10 @@ namespace ARealmReorganized.Services;
 
 internal static unsafe class RetainerInventoryReader
 {
-    // Retainer bag pages only — RetainerEquippedItems (gear the retainer is wearing for stats)
-    // is intentionally excluded so our count matches what the game shows in the retainer
-    // inventory window, and so we don't try to move equipped items (player must unequip them
-    // via the retainer UI first).
+    // Retainer bag pages only — five pages of 35 slots each, that's the actual "Inventory"
+    // tab in the retainer window. RetainerEquippedItems (gear they're wearing) is excluded so
+    // our count matches the game UI and we don't try to move equipped items. RetainerPage6 /
+    // RetainerPage7 in the InventoryType enum exist but aren't part of the inventory tab.
     private static readonly InventoryType[] RetainerBags =
     [
         InventoryType.RetainerPage1,
@@ -17,8 +17,6 @@ internal static unsafe class RetainerInventoryReader
         InventoryType.RetainerPage3,
         InventoryType.RetainerPage4,
         InventoryType.RetainerPage5,
-        InventoryType.RetainerPage6,
-        InventoryType.RetainerPage7,
     ];
 
     // Reads the *currently active* retainer's bags. The game only keeps the active retainer's
