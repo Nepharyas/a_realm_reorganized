@@ -14,6 +14,7 @@ public sealed class Configuration : IPluginConfiguration
 
     public DresserCache CachedDresser { get; set; } = new();
     public CabinetCache CachedCabinet { get; set; } = new();
+    public Dictionary<ulong, RetainerInventoryCache> CachedRetainers { get; set; } = new();
 
     public void Save() => Service.PluginInterface.SavePluginConfig(this);
 }

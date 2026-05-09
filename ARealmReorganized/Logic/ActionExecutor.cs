@@ -1,5 +1,5 @@
 using ARealmReorganized.Models;
-using Lumina.Excel.Sheets;
+using ARealmReorganized.Services;
 
 namespace ARealmReorganized.Logic;
 
@@ -14,13 +14,13 @@ public sealed class ActionExecutor : IActionExecutor
 
     public ActionResult MoveToArmoire(uint itemId)
     {
-        var name = ResolveName(itemId);
+        var name = ItemNames.Resolve(itemId);
         if (plugin.Config.DryRun)
         {
-            plugin.LogBuffer.DryRun($"[dry-run] would move {name} (#{itemId}) to armoire");
+            plugin.LogBuffer.DryRun($"[dry-run] would move {name} to armoire");
             return ActionResult.Success;
         }
-        plugin.LogBuffer.Warn($"Move to armoire not yet implemented for {name} (#{itemId})");
+        plugin.LogBuffer.Warn($"Move to armoire not yet implemented for {name}");
         return ActionResult.Failed;
     }
 
@@ -35,25 +35,39 @@ public sealed class ActionExecutor : IActionExecutor
         return ActionResult.Failed;
     }
 
-    public ActionResult RemoveFromDresser(DresserItem item)
+    public ActionResult MoveFromRetainer(uint itemId, ulong retainerId)
     {
-        var name = ResolveName(item.ItemId);
+        var name = ItemNames.Resolve(itemId);
+        var retainerName = ResolveRetainerName(retainerId);
         if (plugin.Config.DryRun)
         {
-            plugin.LogBuffer.DryRun($"[dry-run] would remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
+            plugin.LogBuffer.DryRun($"[dry-run] would pull {name} from retainer {retainerName} into inventory");
+            return ActionResult.Success;
+        }
+        plugin.LogBuffer.Warn($"Move from retainer not yet implemented for {name} (retainer {retainerName})");
+        return ActionResult.Failed;
+    }
+
+    public ActionResult RemoveFromDresser(DresserItem item)
+    {
+        var name = ItemNames.Resolve(item.ItemId);
+        if (plugin.Config.DryRun)
+        {
+            plugin.LogBuffer.DryRun($"[dry-run] would remove {name} from dresser");
             return ActionResult.Success;
         }
         var ok = plugin.Dresser.Remove(item);
         plugin.LogBuffer.Info(ok
-            ? $"Removed {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser"
-            : $"Failed to remove {name} (#{item.ItemId}, slot {item.SlotIndex}) from dresser");
+            ? $"Removed {name} from dresser"
+            : $"Failed to remove {name} from dresser");
         return ok ? ActionResult.Success : ActionResult.Failed;
     }
 
-    private static string ResolveName(uint itemId)
+    private string ResolveRetainerName(ulong retainerId)
     {
-        var sheet = Service.DataManager.GetExcelSheet<Item>();
-        var row = sheet?.GetRowOrDefault(itemId);
-        return row?.Name.ExtractText() ?? $"item {itemId}";
+        if (plugin.Config.CachedRetainers.TryGetValue(retainerId, out var snap)
+            && !string.IsNullOrEmpty(snap.Name))
+            return snap.Name;
+        return $"#{retainerId}";
     }
 }

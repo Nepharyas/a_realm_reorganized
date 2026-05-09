@@ -14,4 +14,5 @@ public interface IActionExecutor
     ActionResult MoveToArmoire(uint itemId);
     ActionResult CompressSet(SetGroup set);
     ActionResult RemoveFromDresser(DresserItem item);
+    ActionResult MoveFromRetainer(uint itemId, ulong retainerId);
 }

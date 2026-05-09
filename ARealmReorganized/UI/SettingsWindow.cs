@@ -23,7 +23,6 @@ public sealed class SettingsWindow : Window, IDisposable
 
     public void OpenOnLogs()
     {
-        if (!plugin.Config.DryRun) return;
         IsOpen = true;
         jumpToLogs = true;
     }
@@ -84,10 +83,10 @@ public sealed class SettingsWindow : Window, IDisposable
                 switch (entry.Level)
                 {
                     case LogLevel.DryRun:
-                        ImGui.TextColored(new Vector4(0.7f, 0.78f, 0.95f, 1f), text);
+                        ImGui.TextColored(UiColors.DryRun, text);
                         break;
                     case LogLevel.Warning:
-                        ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), text);
+                        ImGui.TextColored(UiColors.Warning, text);
                         break;
                     default:
                         ImGui.TextUnformatted(text);

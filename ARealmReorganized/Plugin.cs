@@ -22,6 +22,7 @@ public sealed class Plugin : IDalamudPlugin
     public IGlamourDresserService Dresser { get; }
     public ArmoireEligibility Eligibility { get; }
     public IActionExecutor Executor { get; }
+    internal RetainerCacheService Retainers { get; }
     public PluginLogBuffer LogBuffer { get; } = new();
 
     public Plugin(IDalamudPluginInterface pi)
@@ -35,6 +36,7 @@ public sealed class Plugin : IDalamudPlugin
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
         Executor = new ActionExecutor(this);
+        Retainers = new RetainerCacheService(this);
 
         MainWindow = new MainWindow(this);
         SettingsWindow = new SettingsWindow(this);
@@ -73,5 +75,6 @@ public sealed class Plugin : IDalamudPlugin
         if (!Service.ClientState.IsLoggedIn) return;
         Dresser.RefreshCacheIfLive();
         Cabinet.RefreshCacheIfLive();
+        Retainers.RefreshCacheIfLive();
     }
 }

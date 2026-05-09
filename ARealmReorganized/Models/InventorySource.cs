@@ -5,4 +5,5 @@ public enum InventorySource
     Inventory,
     Armoury,
     Saddlebag,
+    Retainer,
 }
