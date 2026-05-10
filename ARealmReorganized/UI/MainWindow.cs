@@ -83,14 +83,18 @@ public sealed class MainWindow : Window, IDisposable
             {
                 TextDisabledWrapped("Press Scan to populate results.");
             }
-            else if (ImGui.BeginTabBar("##arrtabs"))
+            else
             {
-                if (ImGui.BeginTabItem(armoireTab.TabLabel)) { armoireTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(compressTab.TabLabel)) { compressTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(duplicatesTab.TabLabel)) { duplicatesTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(inventoryTab.TabLabel)) { inventoryTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(retainersTab.TabLabel)) { retainersTab.Draw(); ImGui.EndTabItem(); }
-                ImGui.EndTabBar();
+                DrawHighlightLegend();
+                if (ImGui.BeginTabBar("##arrtabs"))
+                {
+                    if (ImGui.BeginTabItem(armoireTab.TabLabel)) { armoireTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(compressTab.TabLabel)) { compressTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(duplicatesTab.TabLabel)) { duplicatesTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(inventoryTab.TabLabel)) { inventoryTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(retainersTab.TabLabel)) { retainersTab.Draw(); ImGui.EndTabItem(); }
+                    ImGui.EndTabBar();
+                }
             }
         }
         ImGui.EndChild();
@@ -156,6 +160,22 @@ public sealed class MainWindow : Window, IDisposable
         var resolved = ItemNames.Resolve(itemId);
         itemNames[itemId] = resolved;
         return resolved;
+    }
+
+    // Legend swatch colors approximate what the highlighter's byte tints look like applied
+    // to a roughly-white reference. Keep these in sync with the SlotTint constants in
+    // InventoryHighlighter (see comments there for the source values).
+    private static readonly Vector4 LegendDresserToArmoireColor = new(0.6f, 1.0f, 0.6f, 1f); // green
+    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.6f, 0.8f, 1.0f, 1f); // blue
+    private static readonly Vector4 LegendSetCompletionColor    = new(1.0f, 0.9f, 0.5f, 1f); // gold
+
+    private static void DrawHighlightLegend()
+    {
+        TextDisabledWrapped("Open your dresser/bags/retainer; tinted slots match these:");
+        ImGui.TextColored(LegendDresserToArmoireColor, "■ in your dresser, can move to the armoire");
+        ImGui.TextColored(LegendOutsideToArmoireColor, "■ in bags / armoury / saddlebag / retainer, can move to the armoire");
+        ImGui.TextColored(LegendSetCompletionColor,    "■ would complete a partial dresser set if put into the dresser");
+        ImGui.Spacing();
     }
 
     internal void DrawCabinetUnavailableBanner()
