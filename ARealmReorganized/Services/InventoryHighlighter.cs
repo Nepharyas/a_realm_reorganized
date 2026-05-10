@@ -65,18 +65,14 @@ internal sealed unsafe class InventoryHighlighter
     // need to brighten — but tinting needs the brighten side too, so the target channel
     // pushes well past 100 while the others get knocked down. These are first-pass
     // values; tune in-game for taste.
-    private const byte NeutralBrightness = 100;
-    private static readonly SlotTint Neutral = new(NeutralBrightness, NeutralBrightness, NeutralBrightness);
-    private static readonly SlotTint DresserToArmoireTint  = new( 50, 220,  50); // green
-    private static readonly SlotTint OutsideToArmoireTint  = new( 50, 130, 220); // blue
-    private static readonly SlotTint SetCompletionTint     = new(230, 200,  50); // gold
+    private static readonly SlotTint DresserToArmoireTint  = new( 75, 165,  75); // green
+    private static readonly SlotTint OutsideToArmoireTint  = new( 75, 115, 175); // blue
+    private static readonly SlotTint SetCompletionTint     = new(175, 150,  75); // gold
 
     private readonly Plugin plugin;
     private readonly HashSet<int> dresserToArmoireIcons = [];
     private readonly HashSet<int> outsideToArmoireIcons = [];
     private readonly HashSet<int> setCompletionIcons = [];
-    private DateTime lastTickAt = DateTime.MinValue;
-    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(250);
 
     public InventoryHighlighter(Plugin plugin)
     {
@@ -96,12 +92,14 @@ internal sealed unsafe class InventoryHighlighter
         BuildIconSet(setCompletionIcons, setCompletionItemIds);
     }
 
+    // Called every frame (no throttle). The game itself writes MultiplyRGB on visible
+    // slots every frame to manage things like greying out unequippable items, so to stay
+    // visible we have to write at least as often. We only touch slots that should be
+    // tinted; non-tinted slots are left to the game's own per-frame logic, which means
+    // stale tints from a previous scan get cleaned up automatically as the game writes
+    // its defaults back over them.
     public void Tick()
     {
-        var now = DateTime.UtcNow;
-        if (now - lastTickAt < TickInterval) return;
-        lastTickAt = now;
-
         // Dresser walk is disabled: NodeIds 32..81 in MiragePrismPrismBox aren't
         // AtkComponentDragDrops despite the matching inner-node count from the probe;
         // calling GetIconId() on them crashes the game. Need to identify the actual
@@ -132,20 +130,6 @@ internal sealed unsafe class InventoryHighlighter
         }
     }
 
-    private void HighlightInDresser()
-    {
-        var addon = TryGetVisibleAddon(DresserAddonName);
-        if (addon == null) return;
-
-        for (var displaySlotIndex = 0; displaySlotIndex < DresserVisibleSlotCount; displaySlotIndex++)
-        {
-            var slotNodeId = DresserFirstSlotNodeId + (uint)displaySlotIndex;
-            var slotNode = addon->GetNodeById(slotNodeId);
-            if (slotNode == null) continue;
-            ApplyTintToComponentNode(slotNode, ResolveDresserTint);
-        }
-    }
-
     private void HighlightInPlayerBags()
     {
         foreach (var addonName in PlayerBagGridAddonNames)
@@ -173,7 +157,7 @@ internal sealed unsafe class InventoryHighlighter
 
     private void HighlightTypedGridAddon<T>(
         string addonName,
-        Func<int, SlotTint> resolveTint,
+        Func<int, SlotTint?> resolveTint,
         SlotAccessor<T> getSlots) where T : unmanaged
     {
         var addonBase = TryGetVisibleAddon(addonName);
@@ -187,42 +171,34 @@ internal sealed unsafe class InventoryHighlighter
         }
     }
 
-    private SlotTint ResolveDresserTint(int iconId)
+    // Returns null when no tint applies — caller must skip writing so we don't fight the
+    // game's own per-frame writes (e.g. greying out unequippable items).
+    private SlotTint? ResolveDresserTint(int iconId)
     {
-        if (iconId == 0) return Neutral;
-        return dresserToArmoireIcons.Contains(iconId) ? DresserToArmoireTint : Neutral;
+        if (iconId == 0) return null;
+        return dresserToArmoireIcons.Contains(iconId) ? DresserToArmoireTint : null;
     }
 
-    private SlotTint ResolveOutsideTint(int iconId)
+    private SlotTint? ResolveOutsideTint(int iconId)
     {
-        if (iconId == 0) return Neutral;
+        if (iconId == 0) return null;
         // Set-completion is more specific (the item finishes a set, not just "could go to
         // the armoire"), so it wins when both match the same icon.
         if (setCompletionIcons.Contains(iconId)) return SetCompletionTint;
         if (outsideToArmoireIcons.Contains(iconId)) return OutsideToArmoireTint;
-        return Neutral;
-    }
-
-    // For nodes reached by NodeId (only the dresser at the moment): the node IS an
-    // AtkComponentNode; its inner Component is the AtkComponentDragDrop.
-    private static void ApplyTintToComponentNode(AtkResNode* node, Func<int, SlotTint> resolveTint)
-    {
-        if ((int)node->Type < 1000) return;
-        var componentNode = (AtkComponentNode*)node;
-        var component = (AtkComponentDragDrop*)componentNode->Component;
-        if (component == null) return;
-        var iconId = component->GetIconId();
-        WriteTint(node, resolveTint(iconId));
+        return null;
     }
 
     // For typed addons we already have the AtkComponentDragDrop pointer; we tint its
     // OwnerNode (which is the AtkComponentNode wrapping it).
-    private static void ApplyTintToSlotComponent(AtkComponentDragDrop* component, Func<int, SlotTint> resolveTint)
+    private static void ApplyTintToSlotComponent(AtkComponentDragDrop* component, Func<int, SlotTint?> resolveTint)
     {
         var ownerNode = (AtkResNode*)((AtkComponentBase*)component)->OwnerNode;
         if (ownerNode == null) return;
         var iconId = component->GetIconId();
-        WriteTint(ownerNode, resolveTint(iconId));
+        var tint = resolveTint(iconId);
+        if (tint is null) return;
+        WriteTint(ownerNode, tint.Value);
     }
 
     private static void WriteTint(AtkResNode* node, SlotTint tint)
