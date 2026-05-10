@@ -162,12 +162,11 @@ public sealed class MainWindow : Window, IDisposable
         return resolved;
     }
 
-    // Legend swatch colors approximate what the highlighter's byte tints look like applied
-    // to a roughly-white reference. Keep these in sync with the SlotTint constants in
-    // InventoryHighlighter (see comments there for the source values).
-    private static readonly Vector4 LegendDresserToArmoireColor = new(0.6f, 1.0f, 0.6f, 1f); // green
-    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.6f, 0.8f, 1.0f, 1f); // blue
-    private static readonly Vector4 LegendSetCompletionColor    = new(1.0f, 0.9f, 0.5f, 1f); // gold
+    // Legend swatch colors approximate the perceived in-game tint from the highlighter's
+    // byte values. Keep these in sync with the SlotTint constants in InventoryHighlighter.
+    private static readonly Vector4 LegendDresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1f); // green
+    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.4f, 0.6f, 1.0f, 1f); // blue
+    private static readonly Vector4 LegendSetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1f); // gold
 
     private static void DrawHighlightLegend()
     {

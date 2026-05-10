@@ -59,16 +59,17 @@ internal sealed unsafe class InventoryHighlighter
     private const string ArmouryBoardAddonName = "ArmouryBoard";
     private const string SaddlebagAddonName = "InventoryBuddy";
 
-    // MultiplyRed/Green/Blue are bytes interpreted as percentages: 100 is the game's
-    // neutral baseline (no change). HaselTweaks uses values up to 100 only — we follow
-    // suit so we never push beyond what the game treats as default. Color tints are
-    // achieved by dimming the non-target channels rather than brightening the target one.
-    // FFXIVClientStructs comments confirm: SetIconDisableState uses 50/100 to grey out.
+    // MultiplyRed/Green/Blue are bytes interpreted as percentages where 100 is the game's
+    // neutral baseline (no change). Below 100 dims that channel; above 100 actively
+    // brightens it. HaselTweaks's dim-everything feature only uses ≤100 so they never
+    // need to brighten — but tinting needs the brighten side too, so the target channel
+    // pushes well past 100 while the others get knocked down. These are first-pass
+    // values; tune in-game for taste.
     private const byte NeutralBrightness = 100;
     private static readonly SlotTint Neutral = new(NeutralBrightness, NeutralBrightness, NeutralBrightness);
-    private static readonly SlotTint DresserToArmoireTint  = new(60, 100,  60); // green
-    private static readonly SlotTint OutsideToArmoireTint  = new(60,  80, 100); // blue
-    private static readonly SlotTint SetCompletionTint     = new(100, 90,  50); // gold
+    private static readonly SlotTint DresserToArmoireTint  = new( 50, 220,  50); // green
+    private static readonly SlotTint OutsideToArmoireTint  = new( 50, 130, 220); // blue
+    private static readonly SlotTint SetCompletionTint     = new(230, 200,  50); // gold
 
     private readonly Plugin plugin;
     private readonly HashSet<int> dresserToArmoireIcons = [];
@@ -101,7 +102,10 @@ internal sealed unsafe class InventoryHighlighter
         if (now - lastTickAt < TickInterval) return;
         lastTickAt = now;
 
-        if (dresserToArmoireIcons.Count > 0) HighlightInDresser();
+        // Dresser walk is disabled: NodeIds 32..81 in MiragePrismPrismBox aren't
+        // AtkComponentDragDrops despite the matching inner-node count from the probe;
+        // calling GetIconId() on them crashes the game. Need to identify the actual
+        // component type and find a safe icon-id read path before re-enabling.
         if (HasOutsideHighlights())
         {
             HighlightInPlayerBags();
