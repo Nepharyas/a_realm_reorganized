@@ -191,13 +191,18 @@ public sealed class MainWindow : Window, IDisposable
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
 
-        // Hand the highlighter the union of every itemId we'd flag as armoire-eligible.
-        var armoireEligible = new HashSet<uint>(storableCandidates);
-        foreach (var entry in inventoryStorable) armoireEligible.Add(entry.ItemId);
+        // Feed the highlighter three id sets, one per intent.
+        // - dresser→armoire: items already in the dresser that can move to the armoire.
+        // - outside→armoire: armoire-eligible items found in bags / armoury / saddlebag /
+        //   retainer (the "go put these in the dresser or armoire" set).
+        // - set completion: items that would finish a partial dresser set if added.
+        var outsideToArmoire = new HashSet<uint>();
+        foreach (var entry in inventoryStorable) outsideToArmoire.Add(entry.ItemId);
         foreach (var snap in plugin.Config.CachedRetainers.Values)
             foreach (var cached in snap.Entries)
-                if (plugin.Cabinet.IsStorable(cached.ItemId)) armoireEligible.Add(cached.ItemId);
-        plugin.Highlighter.SetArmoireEligible(armoireEligible);
+                if (plugin.Cabinet.IsStorable(cached.ItemId)) outsideToArmoire.Add(cached.ItemId);
+        var setCompletion = SetCompression.GetMissingPieceItemIds(snapshot);
+        plugin.Highlighter.SetHighlightSets(storableCandidates, outsideToArmoire, setCompletion);
 
         itemNames.Clear();
         var allIds = new HashSet<uint>(storableCandidates);
