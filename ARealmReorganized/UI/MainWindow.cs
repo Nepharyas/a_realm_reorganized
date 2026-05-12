@@ -162,18 +162,18 @@ public sealed class MainWindow : Window, IDisposable
         return resolved;
     }
 
-    // Legend swatch colors approximate the perceived in-game tint from the highlighter's
-    // byte values. Keep these in sync with the SlotTint constants in InventoryHighlighter.
+    // Legend swatch colors match the outline colors drawn by InventoryHighlighter. Keep
+    // these in sync with the constants there.
     private static readonly Vector4 LegendDresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1f); // green
-    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.4f, 0.6f, 1.0f, 1f); // blue
+    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1f); // blue
     private static readonly Vector4 LegendSetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1f); // gold
 
     private static void DrawHighlightLegend()
     {
-        TextDisabledWrapped("Open your dresser/bags/retainer; tinted slots match these:");
-        ImGui.TextColored(LegendDresserToArmoireColor, "■ in your dresser, can move to the armoire");
-        ImGui.TextColored(LegendOutsideToArmoireColor, "■ in bags / armoury / saddlebag / retainer, can move to the armoire");
-        ImGui.TextColored(LegendSetCompletionColor,    "■ would complete a partial dresser set if put into the dresser");
+        TextDisabledWrapped("Open your bags / armoury / saddlebag / retainer — slots with these outlines:");
+        ImGui.TextColored(LegendDresserToArmoireColor, "□ in your dresser, can move to the armoire");
+        ImGui.TextColored(LegendOutsideToArmoireColor, "□ in bags / armoury / saddlebag / retainer, can move to the armoire");
+        ImGui.TextColored(LegendSetCompletionColor,    "□ would complete a partial dresser set if put into the dresser");
         ImGui.Spacing();
     }
 

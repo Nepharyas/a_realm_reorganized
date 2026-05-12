@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
@@ -7,13 +9,14 @@ using LuminaItem = Lumina.Excel.Sheets.Item;
 
 namespace ARealmReorganized.Services;
 
-// Tints inventory slots in the game UI to point the player at items the plogon thinks are
-// worth acting on. The plogon doesn't move anything itself; this highlighter is what the
-// player sees so they know which items to grab.
+// Draws colored outlines around inventory slots in the game UI to point the player at
+// items the plogon thinks are worth acting on. The plogon doesn't move anything itself;
+// the outlines are what the player sees so they know which items to grab.
 //
 // Three colors, one per intent:
 //   - Dresser → Armoire (color A): items already in the dresser that can move to the armoire.
-//     Shown only inside the dresser addon.
+//     Shown only inside the dresser addon. (Currently disabled — dresser slot components
+//     aren't AtkComponentDragDrops, can't read their iconId via GetIconId without crashing.)
 //   - Inventory/Retainer → Armoire (color B): armoire-eligible items found in player bags,
 //     armoury chest, saddlebag, and retainer inventories.
 //   - Set completion (color C): items that, if moved into the dresser, would complete a
@@ -21,23 +24,19 @@ namespace ARealmReorganized.Services;
 //     saddlebag, retainer). Color C wins over B when the same icon matches both — set
 //     completion is more specific.
 //
+// Implementation: we draw rectangles via ImGui's foreground draw list rather than
+// mutating the slot's MultiplyRGB. Outlines are independent of the underlying icon's
+// color (no cyan-vs-blue render variation from icons influencing the tint), and they
+// don't fight the game's own MultiplyRGB writes for greying out unequippable items —
+// greyed items keep their grey AND get their highlight outline.
+//
 // Icons-not-itemIds: detection asks each visible slot for its current icon id via
 // AtkComponentDragDrop.GetIconId(), then matches against precomputed icon sets. This
-// sidesteps the dresser's pagination + sort + filter mapping (no public state for the
-// active page), and avoids the ItemOrderModule sorter dance HaselTweaks uses for player
-// bags. Trade-off: items sharing an icon (most often NQ vs HQ pairs) will both highlight,
-// which is acceptable noise for glamour gear where icons are usually unique.
+// avoids the ItemOrderModule sorter dance HaselTweaks uses for player bags. Trade-off:
+// items sharing an icon (most often NQ vs HQ pairs) will both highlight, which is
+// acceptable noise for glamour gear where icons are usually unique.
 internal sealed unsafe class InventoryHighlighter
 {
-    // The dresser addon (MiragePrismPrismBox) isn't typed in FFXIVClientStructs, so its
-    // 50-slot grid is reached via raw NodeIds. Probe verified: slot components are 50
-    // AtkComponentDragDrops at NodeIds 32..81 in display order (top-left → bottom-right
-    // by row), 5 rows of 10. NodeIds stay stable across pages/sort/filter changes; only
-    // the icons inside them update.
-    private const string DresserAddonName = "MiragePrismPrismBox";
-    private const uint DresserFirstSlotNodeId = 32;
-    private const int DresserVisibleSlotCount = 50;
-
     // Player bag grids cover all three layout flavors FFXIV ships (compact / large /
     // expansion). Compact and large reuse the same addon names; expansion uses an "E"
     // suffix. We try every name and skip the ones that aren't visible — that way we
@@ -59,15 +58,14 @@ internal sealed unsafe class InventoryHighlighter
     private const string ArmouryBoardAddonName = "ArmouryBoard";
     private const string SaddlebagAddonName = "InventoryBuddy";
 
-    // MultiplyRed/Green/Blue are bytes interpreted as percentages where 100 is the game's
-    // neutral baseline (no change). Below 100 dims that channel; above 100 actively
-    // brightens it. HaselTweaks's dim-everything feature only uses ≤100 so they never
-    // need to brighten — but tinting needs the brighten side too, so the target channel
-    // pushes well past 100 while the others get knocked down. These are first-pass
-    // values; tune in-game for taste.
-    private static readonly SlotTint DresserToArmoireTint  = new( 75, 165,  75); // green
-    private static readonly SlotTint OutsideToArmoireTint  = new( 75, 115, 175); // blue
-    private static readonly SlotTint SetCompletionTint     = new(175, 150,  75); // gold
+    // Outline visual settings. Thickness is pixels; rounding matches the slight rounding
+    // FFXIV slots have so the outline doesn't clip the corners.
+    private const float OutlineThickness = 2.5f;
+    private const float OutlineCornerRounding = 2f;
+
+    private static readonly Vector4 DresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1.0f); // green
+    private static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
+    private static readonly Vector4 SetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1.0f); // gold
 
     private readonly Plugin plugin;
     private readonly HashSet<int> dresserToArmoireIcons = [];
@@ -92,25 +90,17 @@ internal sealed unsafe class InventoryHighlighter
         BuildIconSet(setCompletionIcons, setCompletionItemIds);
     }
 
-    // Called every frame (no throttle). The game itself writes MultiplyRGB on visible
-    // slots every frame to manage things like greying out unequippable items, so to stay
-    // visible we have to write at least as often. We only touch slots that should be
-    // tinted; non-tinted slots are left to the game's own per-frame logic, which means
-    // stale tints from a previous scan get cleaned up automatically as the game writes
-    // its defaults back over them.
-    public void Tick()
+    // Called from the plugin's UiBuilder.Draw hook (i.e. every ImGui frame). The
+    // foreground draw list paints on top of game UI, so our outlines stay visible
+    // regardless of how the game updates its slots' MultiplyRGB underneath.
+    public void OnDraw()
     {
-        // Dresser walk is disabled: NodeIds 32..81 in MiragePrismPrismBox aren't
-        // AtkComponentDragDrops despite the matching inner-node count from the probe;
-        // calling GetIconId() on them crashes the game. Need to identify the actual
-        // component type and find a safe icon-id read path before re-enabling.
-        if (HasOutsideHighlights())
-        {
-            HighlightInPlayerBags();
-            HighlightInArmouryBoard();
-            HighlightInSaddlebag();
-            HighlightInRetainer();
-        }
+        if (!HasOutsideHighlights()) return;
+        var drawList = ImGui.GetForegroundDrawList();
+        DrawOutlinesInPlayerBags(drawList);
+        DrawOutlinesInArmouryBoard(drawList);
+        DrawOutlinesInSaddlebag(drawList);
+        DrawOutlinesInRetainer(drawList);
     }
 
     private bool HasOutsideHighlights() =>
@@ -130,34 +120,32 @@ internal sealed unsafe class InventoryHighlighter
         }
     }
 
-    private void HighlightInPlayerBags()
+    private void DrawOutlinesInPlayerBags(ImDrawListPtr drawList)
     {
         foreach (var addonName in PlayerBagGridAddonNames)
-            HighlightTypedGridAddon<AddonInventoryGrid>(addonName, ResolveOutsideTint, addon => addon->Slots);
+            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots);
     }
 
-    private void HighlightInRetainer()
+    private void DrawOutlinesInRetainer(ImDrawListPtr drawList)
     {
         foreach (var addonName in RetainerBagGridAddonNames)
-            HighlightTypedGridAddon<AddonInventoryGrid>(addonName, ResolveOutsideTint, addon => addon->Slots);
+            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots);
     }
 
-    private void HighlightInArmouryBoard() =>
-        HighlightTypedGridAddon<AddonArmouryBoard>(
-            ArmouryBoardAddonName, ResolveOutsideTint, addon => addon->Slots);
+    private void DrawOutlinesInArmouryBoard(ImDrawListPtr drawList) =>
+        DrawOutlinesInTypedGridAddon<AddonArmouryBoard>(drawList, ArmouryBoardAddonName, addon => addon->Slots);
 
-    private void HighlightInSaddlebag() =>
-        HighlightTypedGridAddon<AddonInventoryBuddy>(
-            SaddlebagAddonName, ResolveOutsideTint, addon => addon->Slots);
+    private void DrawOutlinesInSaddlebag(ImDrawListPtr drawList) =>
+        DrawOutlinesInTypedGridAddon<AddonInventoryBuddy>(drawList, SaddlebagAddonName, addon => addon->Slots);
 
     // Generic helper for any addon whose FFXIVClientStructs struct exposes a typed `Slots`
     // span of AtkComponentDragDrop pointers. The slot accessor delegate hands us the span
     // because each addon's struct is a different type.
     private delegate Span<Pointer<AtkComponentDragDrop>> SlotAccessor<T>(T* addon) where T : unmanaged;
 
-    private void HighlightTypedGridAddon<T>(
+    private void DrawOutlinesInTypedGridAddon<T>(
+        ImDrawListPtr drawList,
         string addonName,
-        Func<int, SlotTint?> resolveTint,
         SlotAccessor<T> getSlots) where T : unmanaged
     {
         var addonBase = TryGetVisibleAddon(addonName);
@@ -167,45 +155,37 @@ internal sealed unsafe class InventoryHighlighter
         {
             var slotComponent = slotPointer.Value;
             if (slotComponent == null) continue;
-            ApplyTintToSlotComponent(slotComponent, resolveTint);
+            DrawOutlineForSlot(drawList, slotComponent);
         }
     }
 
-    // Returns null when no tint applies — caller must skip writing so we don't fight the
-    // game's own per-frame writes (e.g. greying out unequippable items).
-    private SlotTint? ResolveDresserTint(int iconId)
+    private void DrawOutlineForSlot(ImDrawListPtr drawList, AtkComponentDragDrop* component)
     {
-        if (iconId == 0) return null;
-        return dresserToArmoireIcons.Contains(iconId) ? DresserToArmoireTint : null;
+        var ownerNode = (AtkResNode*)((AtkComponentBase*)component)->OwnerNode;
+        if (ownerNode == null || !ownerNode->IsVisible()) return;
+        var iconId = component->GetIconId();
+        var color = ResolveOutsideColor(iconId);
+        if (color is null) return;
+
+        var topLeft = new Vector2(ownerNode->ScreenX, ownerNode->ScreenY);
+        var size = new Vector2(ownerNode->Width * ownerNode->ScaleX, ownerNode->Height * ownerNode->ScaleY);
+        drawList.AddRect(
+            topLeft,
+            topLeft + size,
+            ImGui.GetColorU32(color.Value),
+            OutlineCornerRounding,
+            ImDrawFlags.None,
+            OutlineThickness);
     }
 
-    private SlotTint? ResolveOutsideTint(int iconId)
+    private Vector4? ResolveOutsideColor(int iconId)
     {
         if (iconId == 0) return null;
         // Set-completion is more specific (the item finishes a set, not just "could go to
         // the armoire"), so it wins when both match the same icon.
-        if (setCompletionIcons.Contains(iconId)) return SetCompletionTint;
-        if (outsideToArmoireIcons.Contains(iconId)) return OutsideToArmoireTint;
+        if (setCompletionIcons.Contains(iconId)) return SetCompletionColor;
+        if (outsideToArmoireIcons.Contains(iconId)) return OutsideToArmoireColor;
         return null;
-    }
-
-    // For typed addons we already have the AtkComponentDragDrop pointer; we tint its
-    // OwnerNode (which is the AtkComponentNode wrapping it).
-    private static void ApplyTintToSlotComponent(AtkComponentDragDrop* component, Func<int, SlotTint?> resolveTint)
-    {
-        var ownerNode = (AtkResNode*)((AtkComponentBase*)component)->OwnerNode;
-        if (ownerNode == null) return;
-        var iconId = component->GetIconId();
-        var tint = resolveTint(iconId);
-        if (tint is null) return;
-        WriteTint(ownerNode, tint.Value);
-    }
-
-    private static void WriteTint(AtkResNode* node, SlotTint tint)
-    {
-        node->MultiplyRed = tint.Red;
-        node->MultiplyGreen = tint.Green;
-        node->MultiplyBlue = tint.Blue;
     }
 
     private static AtkUnitBase* TryGetVisibleAddon(string addonName)
@@ -215,6 +195,4 @@ internal sealed unsafe class InventoryHighlighter
         var addon = (AtkUnitBase*)wrapper.Address;
         return addon->IsVisible ? addon : null;
     }
-
-    private readonly record struct SlotTint(byte Red, byte Green, byte Blue);
 }
