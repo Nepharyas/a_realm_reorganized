@@ -58,10 +58,14 @@ internal sealed unsafe class InventoryHighlighter
     private const string ArmouryBoardAddonName = "ArmouryBoard";
     private const string SaddlebagAddonName = "InventoryBuddy";
 
-    // Outline visual settings. Thickness is pixels; rounding matches the slight rounding
-    // FFXIV slots have so the outline doesn't clip the corners.
-    private const float OutlineThickness = 2.5f;
-    private const float OutlineCornerRounding = 2f;
+    // Outline visual settings. The outline is offset slightly outside the slot so it
+    // lands in the dark gap between slots rather than fighting the icon's rarity
+    // background (purple/green/gold). Fill adds a wash across the slot so the highlight
+    // also reads at a glance from inside the slot, not just at the edge.
+    private const float OutlineOutset = 1.5f;
+    private const float OutlineThickness = 4.5f;
+    private const float OutlineCornerRounding = 3f;
+    private const float FillAlpha = 0.35f;
 
     private static readonly Vector4 DresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1.0f); // green
     private static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
@@ -151,15 +155,20 @@ internal sealed unsafe class InventoryHighlighter
         var addonBase = TryGetVisibleAddon(addonName);
         if (addonBase == null) return;
         var addon = (T*)addonBase;
+        // The addon has an overall scale (set by the player's UI options); slot dimensions
+        // we read from the node are in addon-local units, so we have to multiply by this
+        // to get the actual on-screen size. Position fields (ScreenX/Y) already account
+        // for the cumulative transforms.
+        var addonScale = addonBase->Scale;
         foreach (var slotPointer in getSlots(addon))
         {
             var slotComponent = slotPointer.Value;
             if (slotComponent == null) continue;
-            DrawOutlineForSlot(drawList, slotComponent);
+            DrawOutlineForSlot(drawList, slotComponent, addonScale);
         }
     }
 
-    private void DrawOutlineForSlot(ImDrawListPtr drawList, AtkComponentDragDrop* component)
+    private void DrawOutlineForSlot(ImDrawListPtr drawList, AtkComponentDragDrop* component, float addonScale)
     {
         var ownerNode = (AtkResNode*)((AtkComponentBase*)component)->OwnerNode;
         if (ownerNode == null || !ownerNode->IsVisible()) return;
@@ -168,12 +177,20 @@ internal sealed unsafe class InventoryHighlighter
         if (color is null) return;
 
         var topLeft = new Vector2(ownerNode->ScreenX, ownerNode->ScreenY);
-        var size = new Vector2(ownerNode->Width * ownerNode->ScaleX, ownerNode->Height * ownerNode->ScaleY);
+        var size = new Vector2(
+            ownerNode->Width * ownerNode->ScaleX * addonScale,
+            ownerNode->Height * ownerNode->ScaleY * addonScale);
+        var bottomRight = topLeft + size;
+        var outsetVector = new Vector2(OutlineOutset, OutlineOutset);
+        var outlineColor = color.Value;
+        var fillColor = new Vector4(outlineColor.X, outlineColor.Y, outlineColor.Z, FillAlpha);
+
+        drawList.AddRectFilled(topLeft, bottomRight, ImGui.GetColorU32(fillColor), OutlineCornerRounding);
         drawList.AddRect(
-            topLeft,
-            topLeft + size,
-            ImGui.GetColorU32(color.Value),
-            OutlineCornerRounding,
+            topLeft - outsetVector,
+            bottomRight + outsetVector,
+            ImGui.GetColorU32(outlineColor),
+            OutlineCornerRounding + OutlineOutset,
             ImDrawFlags.None,
             OutlineThickness);
     }
