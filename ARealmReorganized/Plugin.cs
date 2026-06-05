@@ -1,3 +1,5 @@
+using System;
+using ARealmReorganized.Diagnostics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Services;
 using ARealmReorganized.UI;
@@ -71,7 +73,15 @@ public sealed class Plugin : IDalamudPlugin
     private void OpenMain() => MainWindow.IsOpen = true;
     private void OpenSettings() => SettingsWindow.IsOpen = true;
 
-    private void OnCommand(string _, string __) => MainWindow.Toggle();
+    private void OnCommand(string _, string args)
+    {
+        if (args.Trim().Equals("probe-dresser-slot", StringComparison.OrdinalIgnoreCase))
+        {
+            new DresserSlotProbe(this).Run();
+            return;
+        }
+        MainWindow.Toggle();
+    }
 
     private void OnFrameworkUpdate(IFramework _)
     {
