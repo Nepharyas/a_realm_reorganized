@@ -13,6 +13,16 @@ namespace ARealmReorganized.Services;
 // items the plogon thinks are worth acting on. The plogon doesn't move anything itself;
 // the outlines are what the player sees so they know which items to grab.
 //
+// v1 note: this draws on ImGui's background draw list (above game UI, below ImGui
+// windows) and uses a per-frame rect-overlap check to skip slots covered by other
+// visible game addons. That works for the common cases (tooltips, overlapping bag
+// addons, dalamud windows) but doesn't actually know z-order — false negatives are
+// possible when the source addon is on top of an addon whose bounds happen to
+// overlap. The clean fix is to attach custom child nodes to each slot via KamiToolKit
+// so the game handles render order, clipping, and lifecycle for us. That's a separate
+// refactor planned for a follow-up PR; see the BisBuddy plugin for the reference
+// pattern.
+//
 // Three colors, one per intent:
 //   - Dresser → Armoire (color A): items already in the dresser that can move to the
 //     armoire. Shown only inside the dresser addon.
