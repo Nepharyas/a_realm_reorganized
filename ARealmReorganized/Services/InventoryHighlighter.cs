@@ -110,20 +110,42 @@ internal sealed unsafe class InventoryHighlighter
 
     // Called from the plugin's UiBuilder.Draw hook (i.e. every ImGui frame). The
     // foreground draw list paints on top of game UI, so our outlines stay visible
-    // regardless of how the game updates its slots' MultiplyRGB underneath.
+    // regardless of how the game updates its slots' MultiplyRGB underneath. The
+    // downside is the foreground sits above the game's own tooltip addon too — so we
+    // capture the ItemDetail bounds (if it's visible) once per frame and skip drawing
+    // outlines that would overlap it, otherwise the outline paints across tooltip text.
     public void OnDraw()
     {
         if (!HasAnyHighlights()) return;
         var drawList = ImGui.GetForegroundDrawList();
-        if (dresserToArmoireIcons.Count > 0) DrawOutlinesInDresser(drawList);
+        var tooltipBounds = GetItemDetailTooltipBounds();
+        if (dresserToArmoireIcons.Count > 0) DrawOutlinesInDresser(drawList, tooltipBounds);
         if (HasOutsideHighlights())
         {
-            DrawOutlinesInPlayerBags(drawList);
-            DrawOutlinesInArmouryBoard(drawList);
-            DrawOutlinesInSaddlebag(drawList);
-            DrawOutlinesInRetainer(drawList);
+            DrawOutlinesInPlayerBags(drawList, tooltipBounds);
+            DrawOutlinesInArmouryBoard(drawList, tooltipBounds);
+            DrawOutlinesInSaddlebag(drawList, tooltipBounds);
+            DrawOutlinesInRetainer(drawList, tooltipBounds);
         }
     }
+
+    // The item tooltip is its own addon (ItemDetail) which renders above slot icons
+    // but below our ImGui foreground draw list. Returns null when there's no tooltip
+    // showing, otherwise the tooltip's screen-space bounds.
+    private static (Vector2 TopLeft, Vector2 BottomRight)? GetItemDetailTooltipBounds()
+    {
+        var addon = TryGetVisibleAddon("ItemDetail");
+        if (addon == null || addon->RootNode == null) return null;
+        var topLeft = new Vector2(addon->X, addon->Y);
+        var size = new Vector2(
+            addon->RootNode->Width * addon->Scale,
+            addon->RootNode->Height * addon->Scale);
+        return (topLeft, topLeft + size);
+    }
+
+    private static bool RectsOverlap(Vector2 aTopLeft, Vector2 aBottomRight, Vector2 bTopLeft, Vector2 bBottomRight) =>
+        aTopLeft.X < bBottomRight.X && aBottomRight.X > bTopLeft.X &&
+        aTopLeft.Y < bBottomRight.Y && aBottomRight.Y > bTopLeft.Y;
 
     private bool HasAnyHighlights() =>
         dresserToArmoireIcons.Count > 0 || HasOutsideHighlights();
@@ -145,7 +167,7 @@ internal sealed unsafe class InventoryHighlighter
         }
     }
 
-    private void DrawOutlinesInDresser(ImDrawListPtr drawList)
+    private void DrawOutlinesInDresser(ImDrawListPtr drawList, (Vector2, Vector2)? tooltipBounds)
     {
         var addonBase = TryGetVisibleAddon(DresserAddonName);
         if (addonBase == null) return;
@@ -163,27 +185,27 @@ internal sealed unsafe class InventoryHighlighter
             if (iconId == 0) continue;
             if (!dresserToArmoireIcons.Contains((int)iconId)) continue;
 
-            DrawHighlightAroundNode(drawList, slotNode, addonScale, DresserToArmoireColor);
+            DrawHighlightAroundNode(drawList, slotNode, addonScale, DresserToArmoireColor, tooltipBounds);
         }
     }
 
-    private void DrawOutlinesInPlayerBags(ImDrawListPtr drawList)
+    private void DrawOutlinesInPlayerBags(ImDrawListPtr drawList, (Vector2, Vector2)? tooltipBounds)
     {
         foreach (var addonName in PlayerBagGridAddonNames)
-            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots);
+            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots, tooltipBounds);
     }
 
-    private void DrawOutlinesInRetainer(ImDrawListPtr drawList)
+    private void DrawOutlinesInRetainer(ImDrawListPtr drawList, (Vector2, Vector2)? tooltipBounds)
     {
         foreach (var addonName in RetainerBagGridAddonNames)
-            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots);
+            DrawOutlinesInTypedGridAddon<AddonInventoryGrid>(drawList, addonName, addon => addon->Slots, tooltipBounds);
     }
 
-    private void DrawOutlinesInArmouryBoard(ImDrawListPtr drawList) =>
-        DrawOutlinesInTypedGridAddon<AddonArmouryBoard>(drawList, ArmouryBoardAddonName, addon => addon->Slots);
+    private void DrawOutlinesInArmouryBoard(ImDrawListPtr drawList, (Vector2, Vector2)? tooltipBounds) =>
+        DrawOutlinesInTypedGridAddon<AddonArmouryBoard>(drawList, ArmouryBoardAddonName, addon => addon->Slots, tooltipBounds);
 
-    private void DrawOutlinesInSaddlebag(ImDrawListPtr drawList) =>
-        DrawOutlinesInTypedGridAddon<AddonInventoryBuddy>(drawList, SaddlebagAddonName, addon => addon->Slots);
+    private void DrawOutlinesInSaddlebag(ImDrawListPtr drawList, (Vector2, Vector2)? tooltipBounds) =>
+        DrawOutlinesInTypedGridAddon<AddonInventoryBuddy>(drawList, SaddlebagAddonName, addon => addon->Slots, tooltipBounds);
 
     // Generic helper for any addon whose FFXIVClientStructs struct exposes a typed
     // `Slots` span of AtkComponentDragDrop pointers. The slot accessor delegate hands us
@@ -193,7 +215,8 @@ internal sealed unsafe class InventoryHighlighter
     private void DrawOutlinesInTypedGridAddon<T>(
         ImDrawListPtr drawList,
         string addonName,
-        SlotAccessor<T> getSlots) where T : unmanaged
+        SlotAccessor<T> getSlots,
+        (Vector2, Vector2)? tooltipBounds) where T : unmanaged
     {
         var addonBase = TryGetVisibleAddon(addonName);
         if (addonBase == null) return;
@@ -212,7 +235,7 @@ internal sealed unsafe class InventoryHighlighter
             var iconId = slotComponent->GetIconId();
             var color = ResolveOutsideColor(iconId);
             if (color is null) continue;
-            DrawHighlightAroundNode(drawList, ownerNode, addonScale, color.Value);
+            DrawHighlightAroundNode(drawList, ownerNode, addonScale, color.Value, tooltipBounds);
         }
     }
 
@@ -257,7 +280,8 @@ internal sealed unsafe class InventoryHighlighter
     }
 
     private static void DrawHighlightAroundNode(
-        ImDrawListPtr drawList, AtkResNode* node, float addonScale, Vector4 color)
+        ImDrawListPtr drawList, AtkResNode* node, float addonScale, Vector4 color,
+        (Vector2 TopLeft, Vector2 BottomRight)? tooltipBounds)
     {
         var topLeft = new Vector2(node->ScreenX, node->ScreenY);
         var size = new Vector2(
@@ -265,6 +289,14 @@ internal sealed unsafe class InventoryHighlighter
             node->Height * node->ScaleY * addonScale);
         var bottomRight = topLeft + size;
         var outsetVector = new Vector2(OutlineOutset, OutlineOutset);
+
+        // If the game's item tooltip is showing over this slot's area, skip the
+        // outline — we draw on the ImGui foreground which paints above the tooltip,
+        // and an outline on top of tooltip text just makes the text harder to read.
+        if (tooltipBounds is { } tooltip &&
+            RectsOverlap(topLeft - outsetVector, bottomRight + outsetVector, tooltip.TopLeft, tooltip.BottomRight))
+            return;
+
         var fillColor = new Vector4(color.X, color.Y, color.Z, FillAlpha);
 
         drawList.AddRectFilled(topLeft, bottomRight, ImGui.GetColorU32(fillColor), OutlineCornerRounding);
