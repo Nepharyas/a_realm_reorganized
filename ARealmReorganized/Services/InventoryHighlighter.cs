@@ -14,33 +14,47 @@ namespace ARealmReorganized.Services;
 // the outlines are what the player sees so they know which items to grab.
 //
 // Three colors, one per intent:
-//   - Dresser → Armoire (color A): items already in the dresser that can move to the armoire.
-//     Shown only inside the dresser addon. (Currently disabled — dresser slot components
-//     aren't AtkComponentDragDrops, can't read their iconId via GetIconId without crashing.)
-//   - Inventory/Retainer → Armoire (color B): armoire-eligible items found in player bags,
-//     armoury chest, saddlebag, and retainer inventories.
+//   - Dresser → Armoire (color A): items already in the dresser that can move to the
+//     armoire. Shown only inside the dresser addon.
+//   - Inventory/Retainer → Armoire (color B): armoire-eligible items found in player
+//     bags, armoury chest, saddlebag, and retainer inventories.
 //   - Set completion (color C): items that, if moved into the dresser, would complete a
-//     partial set already there. Shown anywhere those items currently live (bags, armoury,
-//     saddlebag, retainer). Color C wins over B when the same icon matches both — set
-//     completion is more specific.
+//     partial set already there. Shown anywhere those items currently live (bags,
+//     armoury, saddlebag, retainer). Color C wins over B when the same icon matches
+//     both — set completion is more specific.
 //
 // Implementation: we draw rectangles via ImGui's foreground draw list rather than
 // mutating the slot's MultiplyRGB. Outlines are independent of the underlying icon's
-// color (no cyan-vs-blue render variation from icons influencing the tint), and they
-// don't fight the game's own MultiplyRGB writes for greying out unequippable items —
-// greyed items keep their grey AND get their highlight outline.
+// color, don't fight the game's MultiplyRGB writes for greying unequippable items
+// (greyed items keep their grey AND get their highlight outline), and won't crash on
+// component types that don't share the AtkComponentDragDrop vtable.
 //
-// Icons-not-itemIds: detection asks each visible slot for its current icon id via
-// AtkComponentDragDrop.GetIconId(), then matches against precomputed icon sets. This
-// avoids the ItemOrderModule sorter dance HaselTweaks uses for player bags. Trade-off:
-// items sharing an icon (most often NQ vs HQ pairs) will both highlight, which is
-// acceptable noise for glamour gear where icons are usually unique.
+// Icons-not-itemIds: detection reads each visible slot's current icon id and matches
+// against precomputed icon sets. Trade-off: items sharing an icon (most often NQ vs HQ
+// pairs) will both highlight, acceptable noise for glamour gear where icons are usually
+// unique.
+//
+// Two icon-id read paths because the addons fall into two families:
+//   - Typed `Slots` exposed by FFXIVClientStructs (player bags, armoury, saddlebag,
+//     retainer): the slot is an AtkComponentDragDrop, GetIconId() works directly.
+//   - Dresser (MiragePrismPrismBox): slot components aren't DragDrops (probed and
+//     confirmed — calling GetIconId crashed). Each slot wraps a 40x40 image node at
+//     inner-NodeId 13 whose PartsList → Parts[PartId].UldAsset → AtkTexture.Resource
+//     points at the loaded icon resource. That texture resource carries the iconId
+//     directly as a struct field, no vtable call needed.
 internal sealed unsafe class InventoryHighlighter
 {
+    // Dresser addon (no typed Slots — we walk by NodeId). Probe v1 verified: 50 slot
+    // components at NodeIds 32..81, top-left to bottom-right by row. Probe v2 verified:
+    // inside each slot component, the 40x40 item-icon image lives at inner NodeId 13.
+    private const string DresserAddonName = "MiragePrismPrismBox";
+    private const uint DresserFirstSlotNodeId = 32;
+    private const int DresserVisibleSlotCount = 50;
+    private const uint DresserSlotIconImageInnerNodeId = 13;
+
     // Player bag grids cover all three layout flavors FFXIV ships (compact / large /
     // expansion). Compact and large reuse the same addon names; expansion uses an "E"
-    // suffix. We try every name and skip the ones that aren't visible — that way we
-    // don't need to read the player's UI config to know which flavor is active.
+    // suffix. We try every name and skip the ones that aren't visible.
     private static readonly string[] PlayerBagGridAddonNames =
     [
         "InventoryGrid0",  "InventoryGrid1",  "InventoryGrid2",  "InventoryGrid3",
@@ -99,13 +113,20 @@ internal sealed unsafe class InventoryHighlighter
     // regardless of how the game updates its slots' MultiplyRGB underneath.
     public void OnDraw()
     {
-        if (!HasOutsideHighlights()) return;
+        if (!HasAnyHighlights()) return;
         var drawList = ImGui.GetForegroundDrawList();
-        DrawOutlinesInPlayerBags(drawList);
-        DrawOutlinesInArmouryBoard(drawList);
-        DrawOutlinesInSaddlebag(drawList);
-        DrawOutlinesInRetainer(drawList);
+        if (dresserToArmoireIcons.Count > 0) DrawOutlinesInDresser(drawList);
+        if (HasOutsideHighlights())
+        {
+            DrawOutlinesInPlayerBags(drawList);
+            DrawOutlinesInArmouryBoard(drawList);
+            DrawOutlinesInSaddlebag(drawList);
+            DrawOutlinesInRetainer(drawList);
+        }
     }
+
+    private bool HasAnyHighlights() =>
+        dresserToArmoireIcons.Count > 0 || HasOutsideHighlights();
 
     private bool HasOutsideHighlights() =>
         outsideToArmoireIcons.Count > 0 || setCompletionIcons.Count > 0;
@@ -121,6 +142,28 @@ internal sealed unsafe class InventoryHighlighter
             if (row is null) continue;
             var iconId = (int)row.Value.Icon;
             if (iconId != 0) destination.Add(iconId);
+        }
+    }
+
+    private void DrawOutlinesInDresser(ImDrawListPtr drawList)
+    {
+        var addonBase = TryGetVisibleAddon(DresserAddonName);
+        if (addonBase == null) return;
+        var addonScale = addonBase->Scale;
+        for (var displaySlotIndex = 0; displaySlotIndex < DresserVisibleSlotCount; displaySlotIndex++)
+        {
+            var slotNodeId = DresserFirstSlotNodeId + (uint)displaySlotIndex;
+            var slotNode = addonBase->GetNodeById(slotNodeId);
+            if (slotNode == null || !slotNode->IsVisible()) continue;
+            if ((int)slotNode->Type < 1000) continue;
+            var componentNode = (AtkComponentNode*)slotNode;
+            if (componentNode->Component == null) continue;
+
+            var iconId = ReadIconIdFromDresserSlot(componentNode->Component);
+            if (iconId == 0) continue;
+            if (!dresserToArmoireIcons.Contains((int)iconId)) continue;
+
+            DrawHighlightAroundNode(drawList, slotNode, addonScale, DresserToArmoireColor);
         }
     }
 
@@ -142,9 +185,9 @@ internal sealed unsafe class InventoryHighlighter
     private void DrawOutlinesInSaddlebag(ImDrawListPtr drawList) =>
         DrawOutlinesInTypedGridAddon<AddonInventoryBuddy>(drawList, SaddlebagAddonName, addon => addon->Slots);
 
-    // Generic helper for any addon whose FFXIVClientStructs struct exposes a typed `Slots`
-    // span of AtkComponentDragDrop pointers. The slot accessor delegate hands us the span
-    // because each addon's struct is a different type.
+    // Generic helper for any addon whose FFXIVClientStructs struct exposes a typed
+    // `Slots` span of AtkComponentDragDrop pointers. The slot accessor delegate hands us
+    // the span because each addon's struct is a different type.
     private delegate Span<Pointer<AtkComponentDragDrop>> SlotAccessor<T>(T* addon) where T : unmanaged;
 
     private void DrawOutlinesInTypedGridAddon<T>(
@@ -155,54 +198,83 @@ internal sealed unsafe class InventoryHighlighter
         var addonBase = TryGetVisibleAddon(addonName);
         if (addonBase == null) return;
         var addon = (T*)addonBase;
-        // The addon has an overall scale (set by the player's UI options); slot dimensions
-        // we read from the node are in addon-local units, so we have to multiply by this
-        // to get the actual on-screen size. Position fields (ScreenX/Y) already account
-        // for the cumulative transforms.
+        // The addon has an overall scale (set by the player's UI options); slot
+        // dimensions we read from the node are in addon-local units, so we have to
+        // multiply by this to get the actual on-screen size. Position fields (ScreenX/Y)
+        // already account for the cumulative transforms.
         var addonScale = addonBase->Scale;
         foreach (var slotPointer in getSlots(addon))
         {
             var slotComponent = slotPointer.Value;
             if (slotComponent == null) continue;
-            DrawOutlineForSlot(drawList, slotComponent, addonScale);
+            var ownerNode = (AtkResNode*)((AtkComponentBase*)slotComponent)->OwnerNode;
+            if (ownerNode == null || !ownerNode->IsVisible()) continue;
+            var iconId = slotComponent->GetIconId();
+            var color = ResolveOutsideColor(iconId);
+            if (color is null) continue;
+            DrawHighlightAroundNode(drawList, ownerNode, addonScale, color.Value);
         }
     }
 
-    private void DrawOutlineForSlot(ImDrawListPtr drawList, AtkComponentDragDrop* component, float addonScale)
+    // Dresser slot components aren't AtkComponentDragDrops, so GetIconId would crash.
+    // The slot's icon graphic lives in an inner image node (inner NodeId 13); its
+    // PartsList → Parts[PartId].UldAsset → AtkTexture.Resource has the iconId as a
+    // plain struct field, no vtable indirection.
+    private static uint ReadIconIdFromDresserSlot(AtkComponentBase* slotComponent)
     {
-        var ownerNode = (AtkResNode*)((AtkComponentBase*)component)->OwnerNode;
-        if (ownerNode == null || !ownerNode->IsVisible()) return;
-        var iconId = component->GetIconId();
-        var color = ResolveOutsideColor(iconId);
-        if (color is null) return;
+        for (var i = 0; i < slotComponent->UldManager.NodeListCount; i++)
+        {
+            var inner = slotComponent->UldManager.NodeList[i];
+            if (inner == null) continue;
+            if (inner->NodeId != DresserSlotIconImageInnerNodeId) continue;
+            if (inner->Type != NodeType.Image) continue;
+            return ReadIconIdFromImageNode((AtkImageNode*)inner);
+        }
+        return 0;
+    }
 
-        var topLeft = new Vector2(ownerNode->ScreenX, ownerNode->ScreenY);
-        var size = new Vector2(
-            ownerNode->Width * ownerNode->ScaleX * addonScale,
-            ownerNode->Height * ownerNode->ScaleY * addonScale);
-        var bottomRight = topLeft + size;
-        var outsetVector = new Vector2(OutlineOutset, OutlineOutset);
-        var outlineColor = color.Value;
-        var fillColor = new Vector4(outlineColor.X, outlineColor.Y, outlineColor.Z, FillAlpha);
-
-        drawList.AddRectFilled(topLeft, bottomRight, ImGui.GetColorU32(fillColor), OutlineCornerRounding);
-        drawList.AddRect(
-            topLeft - outsetVector,
-            bottomRight + outsetVector,
-            ImGui.GetColorU32(outlineColor),
-            OutlineCornerRounding + OutlineOutset,
-            ImDrawFlags.None,
-            OutlineThickness);
+    private static uint ReadIconIdFromImageNode(AtkImageNode* imageNode)
+    {
+        var partsList = imageNode->PartsList;
+        if (partsList == null) return 0;
+        if (imageNode->PartId >= partsList->PartCount) return 0;
+        var part = &partsList->Parts[imageNode->PartId];
+        if (part->UldAsset == null) return 0;
+        var texture = &part->UldAsset->AtkTexture;
+        if (texture->TextureType != TextureType.Resource) return 0;
+        if (texture->Resource == null) return 0;
+        return texture->Resource->IconId;
     }
 
     private Vector4? ResolveOutsideColor(int iconId)
     {
         if (iconId == 0) return null;
-        // Set-completion is more specific (the item finishes a set, not just "could go to
-        // the armoire"), so it wins when both match the same icon.
+        // Set-completion is more specific (the item finishes a set, not just "could go
+        // to the armoire"), so it wins when both match the same icon.
         if (setCompletionIcons.Contains(iconId)) return SetCompletionColor;
         if (outsideToArmoireIcons.Contains(iconId)) return OutsideToArmoireColor;
         return null;
+    }
+
+    private static void DrawHighlightAroundNode(
+        ImDrawListPtr drawList, AtkResNode* node, float addonScale, Vector4 color)
+    {
+        var topLeft = new Vector2(node->ScreenX, node->ScreenY);
+        var size = new Vector2(
+            node->Width * node->ScaleX * addonScale,
+            node->Height * node->ScaleY * addonScale);
+        var bottomRight = topLeft + size;
+        var outsetVector = new Vector2(OutlineOutset, OutlineOutset);
+        var fillColor = new Vector4(color.X, color.Y, color.Z, FillAlpha);
+
+        drawList.AddRectFilled(topLeft, bottomRight, ImGui.GetColorU32(fillColor), OutlineCornerRounding);
+        drawList.AddRect(
+            topLeft - outsetVector,
+            bottomRight + outsetVector,
+            ImGui.GetColorU32(color),
+            OutlineCornerRounding + OutlineOutset,
+            ImDrawFlags.None,
+            OutlineThickness);
     }
 
     private static AtkUnitBase* TryGetVisibleAddon(string addonName)
