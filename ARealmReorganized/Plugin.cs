@@ -36,7 +36,7 @@ public sealed class Plugin : IDalamudPlugin
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
         Retainers = new RetainerCacheService(this);
-        Highlighter = new InventoryHighlighter(this);
+        Highlighter = new InventoryHighlighter();
 
         MainWindow = new MainWindow(this);
         SettingsWindow = new SettingsWindow(this);

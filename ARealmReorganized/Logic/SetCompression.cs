@@ -7,7 +7,7 @@ namespace ARealmReorganized.Logic;
 
 public static class SetCompression
 {
-    // Returns the union of itemIds belonging to dresser sets that are partially present —
+    // Returns the union of itemIds belonging to dresser sets that are partially present,
     // i.e. for any set with at least one piece in the dresser AND at least one piece missing,
     // the missing piece itemIds. Used to highlight items elsewhere (inventory/retainer/etc.)
     // that the player could move into the dresser to complete a set there.

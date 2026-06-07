@@ -7,7 +7,7 @@ namespace ARealmReorganized.Services;
 internal static class DictionaryPrune
 {
     // Removes every key matching the predicate. Returns the number of removed entries.
-    // ToList materializes the keys before the removal loop — mutating a Dictionary while
+    // ToList materializes the keys before the removal loop. Mutating a Dictionary while
     // iterating its Keys throws InvalidOperationException.
     public static int RemoveKeysWhere<TKey, TValue>(
         Dictionary<TKey, TValue> dict,

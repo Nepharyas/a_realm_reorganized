@@ -170,7 +170,7 @@ public sealed class MainWindow : Window, IDisposable
 
     private static void DrawHighlightLegend()
     {
-        TextDisabledWrapped("Open your bags / armoury / saddlebag / retainer — slots with these outlines:");
+        TextDisabledWrapped("Open your bags / armoury / saddlebag / retainer, slots with these outlines:");
         ImGui.TextColored(LegendDresserToArmoireColor, "□ in your dresser, can move to the armoire");
         ImGui.TextColored(LegendOutsideToArmoireColor, "□ in bags / armoury / saddlebag / retainer, can move to the armoire");
         ImGui.TextColored(LegendSetCompletionColor,    "□ would complete a partial dresser set if put into the dresser");

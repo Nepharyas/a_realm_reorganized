@@ -16,7 +16,7 @@ namespace ARealmReorganized.Services;
 // v1 note: this draws on ImGui's background draw list (above game UI, below ImGui
 // windows) and uses a per-frame rect-overlap check to skip slots covered by other
 // visible game addons. That works for the common cases (tooltips, overlapping bag
-// addons, dalamud windows) but doesn't actually know z-order — false negatives are
+// addons, dalamud windows) but doesn't actually know z-order. False negatives are
 // possible when the source addon is on top of an addon whose bounds happen to
 // overlap. The clean fix is to attach custom child nodes to each slot via KamiToolKit
 // so the game handles render order, clipping, and lifecycle for us. That's a separate
@@ -31,7 +31,7 @@ namespace ARealmReorganized.Services;
 //   - Set completion (color C): items that, if moved into the dresser, would complete a
 //     partial set already there. Shown anywhere those items currently live (bags,
 //     armoury, saddlebag, retainer). Color C wins over B when the same icon matches
-//     both — set completion is more specific.
+//     both. Set completion is more specific.
 //
 // Implementation: we draw rectangles via ImGui's background draw list rather than
 // mutating the slot's MultiplyRGB. Outlines are independent of the underlying icon's
@@ -57,13 +57,13 @@ namespace ARealmReorganized.Services;
 //   - Typed `Slots` exposed by FFXIVClientStructs (player bags, armoury, saddlebag,
 //     retainer): the slot is an AtkComponentDragDrop, GetIconId() works directly.
 //   - Dresser (MiragePrismPrismBox): slot components aren't DragDrops (probed and
-//     confirmed — calling GetIconId crashed). Each slot wraps a 40x40 image node at
+//     confirmed, calling GetIconId crashed). Each slot wraps a 40x40 image node at
 //     inner-NodeId 13 whose PartsList → Parts[PartId].UldAsset → AtkTexture.Resource
 //     points at the loaded icon resource. That texture resource carries the iconId
 //     directly as a struct field, no vtable call needed.
 internal sealed unsafe class InventoryHighlighter
 {
-    // Dresser addon (no typed Slots — we walk by NodeId). Probe v1 verified: 50 slot
+    // Dresser addon (no typed Slots, we walk by NodeId). Probe v1 verified: 50 slot
     // components at NodeIds 32..81, top-left to bottom-right by row. Probe v2 verified:
     // inside each slot component, the 40x40 item-icon image lives at inner NodeId 13.
     private const string DresserAddonName = "MiragePrismPrismBox";
@@ -91,7 +91,7 @@ internal sealed unsafe class InventoryHighlighter
     private const string ArmouryBoardAddonName = "ArmouryBoard";
     private const string SaddlebagAddonName = "InventoryBuddy";
 
-    // Addon "families" — the host inventory addons own their grid addons as children.
+    // Addon "families": the host inventory addons own their grid addons as children.
     // When we're drawing slots inside a grid addon, the host's bounding box covers all
     // grids inside it, so the overlap check would otherwise mask every grid slot. The
     // grids overlap the host by design, so we exclude same-family pairs from obscuring.
@@ -121,16 +121,10 @@ internal sealed unsafe class InventoryHighlighter
     private static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
     private static readonly Vector4 SetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1.0f); // gold
 
-    private readonly Plugin plugin;
     private readonly HashSet<int> dresserToArmoireIcons = [];
     private readonly HashSet<int> outsideToArmoireIcons = [];
     private readonly HashSet<int> setCompletionIcons = [];
     private readonly List<AddonRect> visibleAddonRects = [];
-
-    public InventoryHighlighter(Plugin plugin)
-    {
-        this.plugin = plugin;
-    }
 
     public void SetHighlightSets(
         IEnumerable<uint> dresserToArmoireItemIds,

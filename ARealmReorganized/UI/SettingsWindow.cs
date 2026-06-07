@@ -10,7 +10,7 @@ public sealed class SettingsWindow : Window, IDisposable
     private readonly Plugin plugin;
     private bool autoScrollLogs = true;
 
-    public SettingsWindow(Plugin plugin) : base("A Realm Reorganized — Logs##arrsettings")
+    public SettingsWindow(Plugin plugin) : base("A Realm Reorganized - Logs##arrsettings")
     {
         this.plugin = plugin;
         Size = new Vector2(560, 360);
