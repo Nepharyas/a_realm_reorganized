@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -55,22 +56,27 @@ internal sealed unsafe class InventoryHighlighter
     private const string ArmouryBoardAddonName = "ArmouryBoard";
     private const string SaddlebagAddonName = "InventoryBuddy";
 
-    // Addon "families": the host inventory addons own their grid addons as children.
-    // When we're drawing slots inside a grid addon, the host's bounding box covers all
-    // grids inside it, so the overlap check would otherwise mask every grid slot. The
-    // grids overlap the host by design, so we exclude same-family pairs from obscuring.
-    private static readonly HashSet<string> PlayerInventoryFamily = new(StringComparer.Ordinal)
-    {
+    // The host inventory addons that own the grid addons as children.
+    private static readonly string[] PlayerInventoryHostAddonNames =
+    [
         "Inventory", "InventoryLarge", "InventoryExpansion",
-        "InventoryGrid0",  "InventoryGrid1",  "InventoryGrid2",  "InventoryGrid3",
-        "InventoryGrid0E", "InventoryGrid1E", "InventoryGrid2E", "InventoryGrid3E",
-    };
+    ];
 
-    private static readonly HashSet<string> RetainerInventoryFamily = new(StringComparer.Ordinal)
-    {
+    private static readonly string[] RetainerInventoryHostAddonNames =
+    [
         "InventoryRetainer", "InventoryRetainerLarge",
-        "RetainerGrid", "RetainerGrid0", "RetainerGrid1", "RetainerGrid2", "RetainerGrid3", "RetainerGrid4",
-    };
+    ];
+
+    // Addon "families" are the host plus its grids. When we draw slots inside a grid the
+    // host's bounding box covers all of them, so the overlap check would otherwise mask
+    // every grid slot. The grids overlap the host by design, so we exclude same-family
+    // pairs from obscuring. Built from the host + grid name lists so the grid names live
+    // in one place.
+    private static readonly HashSet<string> PlayerInventoryFamily =
+        new(PlayerInventoryHostAddonNames.Concat(PlayerBagGridAddonNames), StringComparer.Ordinal);
+
+    private static readonly HashSet<string> RetainerInventoryFamily =
+        new(RetainerInventoryHostAddonNames.Concat(RetainerBagGridAddonNames), StringComparer.Ordinal);
 
     // Outline visual settings. The outline is offset slightly outside the slot so it
     // lands in the dark gap between slots rather than fighting the icon's rarity
