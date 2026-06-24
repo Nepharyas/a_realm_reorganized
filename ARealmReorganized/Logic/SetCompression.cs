@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using ARealmReorganized.Models;
 using Lumina.Excel.Sheets;
@@ -7,6 +6,16 @@ namespace ARealmReorganized.Logic;
 
 public static class SetCompression
 {
+    // The 11 gear slots a set covers, in column order. A RowId of 0 means the set has no
+    // piece for that slot.
+    private static uint[] SetMemberIds(MirageStoreSetItem setRow) =>
+    [
+        setRow.MainHand.RowId, setRow.OffHand.RowId, setRow.Head.RowId,
+        setRow.Body.RowId, setRow.Hands.RowId, setRow.Legs.RowId,
+        setRow.Feet.RowId, setRow.Earrings.RowId, setRow.Necklace.RowId,
+        setRow.Bracelets.RowId, setRow.Ring.RowId,
+    ];
+
     // Returns the union of itemIds belonging to dresser sets that are partially present,
     // i.e. for any set with at least one piece in the dresser AND at least one piece missing,
     // the missing piece itemIds. Used to highlight items elsewhere (inventory/retainer/etc.)
@@ -14,7 +23,7 @@ public static class SetCompression
     public static IReadOnlyList<uint> GetMissingPieceItemIds(IEnumerable<DresserItem> dresserItems)
     {
         var setSheet = Service.DataManager.GetExcelSheet<MirageStoreSetItem>();
-        if (setSheet is null) return Array.Empty<uint>();
+        if (setSheet is null) return [];
 
         var dresserItemIds = new HashSet<uint>();
         foreach (var dresserItem in dresserItems) dresserItemIds.Add(dresserItem.ItemId);
@@ -22,13 +31,7 @@ public static class SetCompression
         var missing = new HashSet<uint>();
         foreach (var setRow in setSheet)
         {
-            uint[] memberIds =
-            [
-                setRow.MainHand.RowId, setRow.OffHand.RowId, setRow.Head.RowId,
-                setRow.Body.RowId, setRow.Hands.RowId, setRow.Legs.RowId,
-                setRow.Feet.RowId, setRow.Earrings.RowId, setRow.Necklace.RowId,
-                setRow.Bracelets.RowId, setRow.Ring.RowId,
-            ];
+            var memberIds = SetMemberIds(setRow);
 
             var presentInDresser = 0;
             var realMembers = 0;
@@ -47,8 +50,7 @@ public static class SetCompression
             }
         }
 
-        var result = new List<uint>(missing);
-        return result;
+        return [.. missing];
     }
 
     public static IReadOnlyList<SetGroup> GroupBySeries(
@@ -69,13 +71,7 @@ public static class SetCompression
 
         foreach (var setRow in setSheet)
         {
-            var slotIds = new[]
-            {
-                setRow.MainHand.RowId, setRow.OffHand.RowId, setRow.Head.RowId,
-                setRow.Body.RowId, setRow.Hands.RowId, setRow.Legs.RowId,
-                setRow.Feet.RowId, setRow.Earrings.RowId, setRow.Necklace.RowId,
-                setRow.Bracelets.RowId, setRow.Ring.RowId,
-            };
+            var slotIds = SetMemberIds(setRow);
 
             var matched = new List<DresserItem>();
             int totalSlots = 0;
