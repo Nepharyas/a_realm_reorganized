@@ -71,6 +71,10 @@ internal sealed unsafe class InventoryHighlighter
     private const int DresserVisibleSlotCount = 50;
     private const uint DresserSlotIconImageInnerNodeId = 13;
 
+    // NodeType values below this are primitive nodes (image, text, etc.); component
+    // nodes (the slot wrappers we care about) start here.
+    private const int FirstComponentNodeType = 1000;
+
     // Player bag grids cover all three layout flavors FFXIV ships (compact / large /
     // expansion). Compact and large reuse the same addon names; expansion uses an "E"
     // suffix. We try every name and skip the ones that aren't visible.
@@ -204,7 +208,7 @@ internal sealed unsafe class InventoryHighlighter
             var slotNodeId = DresserFirstSlotNodeId + (uint)displaySlotIndex;
             var slotNode = addonBase->GetNodeById(slotNodeId);
             if (slotNode == null || !slotNode->IsVisible()) continue;
-            if ((int)slotNode->Type < 1000) continue;
+            if ((int)slotNode->Type < FirstComponentNodeType) continue;
             var componentNode = (AtkComponentNode*)slotNode;
             if (componentNode->Component == null) continue;
 
@@ -271,6 +275,7 @@ internal sealed unsafe class InventoryHighlighter
     // plain struct field, no vtable indirection.
     private static uint ReadIconIdFromDresserSlot(AtkComponentBase* slotComponent)
     {
+        if (slotComponent->UldManager.NodeList == null) return 0;
         for (var i = 0; i < slotComponent->UldManager.NodeListCount; i++)
         {
             var inner = slotComponent->UldManager.NodeList[i];
@@ -285,7 +290,7 @@ internal sealed unsafe class InventoryHighlighter
     private static uint ReadIconIdFromImageNode(AtkImageNode* imageNode)
     {
         var partsList = imageNode->PartsList;
-        if (partsList == null) return 0;
+        if (partsList == null || partsList->Parts == null) return 0;
         if (imageNode->PartId >= partsList->PartCount) return 0;
         var part = &partsList->Parts[imageNode->PartId];
         if (part->UldAsset == null) return 0;
