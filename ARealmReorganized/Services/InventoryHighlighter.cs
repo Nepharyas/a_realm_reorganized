@@ -9,58 +9,18 @@ using LuminaItem = Lumina.Excel.Sheets.Item;
 
 namespace ARealmReorganized.Services;
 
-// Draws colored outlines around inventory slots in the game UI to point the player at
-// items the plogon thinks are worth acting on. The plogon doesn't move anything itself;
-// the outlines are what the player sees so they know which items to grab.
+// Outlines inventory slots so the player can see which items the plogon flagged. green =
+// in the dresser, can move to armoire. blue = in bags/armoury/saddlebag/retainer, can
+// move to armoire. gold = would complete a partial dresser set if put in the dresser
+// (gold wins over blue on the same icon).
 //
-// v1 note: this draws on ImGui's background draw list (above game UI, below ImGui
-// windows) and uses a per-frame rect-overlap check to skip slots covered by other
-// visible game addons. That works for the common cases (tooltips, overlapping bag
-// addons, dalamud windows) but doesn't actually know z-order. False negatives are
-// possible when the source addon is on top of an addon whose bounds happen to
-// overlap. The clean fix is to attach custom child nodes to each slot via KamiToolKit
-// so the game handles render order, clipping, and lifecycle for us. That's a separate
-// refactor planned for a follow-up PR; see the BisBuddy plugin for the reference
-// pattern.
+// Matching is by icon id, not item id, so NQ/HQ pairs sharing an icon both light up.
+// Fine for glam gear where icons are unique enough.
 //
-// Three colors, one per intent:
-//   - Dresser → Armoire (color A): items already in the dresser that can move to the
-//     armoire. Shown only inside the dresser addon.
-//   - Inventory/Retainer → Armoire (color B): armoire-eligible items found in player
-//     bags, armoury chest, saddlebag, and retainer inventories.
-//   - Set completion (color C): items that, if moved into the dresser, would complete a
-//     partial set already there. Shown anywhere those items currently live (bags,
-//     armoury, saddlebag, retainer). Color C wins over B when the same icon matches
-//     both. Set completion is more specific.
-//
-// Implementation: we draw rectangles via ImGui's background draw list rather than
-// mutating the slot's MultiplyRGB. Outlines are independent of the underlying icon's
-// color, don't fight the game's MultiplyRGB writes for greying unequippable items
-// (greyed items keep their grey AND get their highlight outline), and won't crash on
-// component types that don't share the AtkComponentDragDrop vtable.
-//
-// Z-order handling: the background draw list paints over all game UI but under any
-// ImGui window, so Dalamud windows the player opens (plugin installer, our own main
-// window, etc.) naturally cover the outlines. For game-vs-game overlap (e.g. the
-// Armoury Chest sitting on top of the Glamour Dresser, or the ItemDetail tooltip
-// floating over a slot), we iterate every visible game addon at the start of each
-// draw, then skip any outline whose slot rect overlaps another addon's rect. The
-// family check below keeps a player-inventory child grid from being masked by its
-// own parent host addon.
-//
-// Icons-not-itemIds: detection reads each visible slot's current icon id and matches
-// against precomputed icon sets. Trade-off: items sharing an icon (most often NQ vs HQ
-// pairs) will both highlight, acceptable noise for glamour gear where icons are usually
-// unique.
-//
-// Two icon-id read paths because the addons fall into two families:
-//   - Typed `Slots` exposed by FFXIVClientStructs (player bags, armoury, saddlebag,
-//     retainer): the slot is an AtkComponentDragDrop, GetIconId() works directly.
-//   - Dresser (MiragePrismPrismBox): slot components aren't DragDrops (probed and
-//     confirmed, calling GetIconId crashed). Each slot wraps a 40x40 image node at
-//     inner-NodeId 13 whose PartsList → Parts[PartId].UldAsset → AtkTexture.Resource
-//     points at the loaded icon resource. That texture resource carries the iconId
-//     directly as a struct field, no vtable call needed.
+// v1 draws on the imgui background draw list and skips slots that overlap another visible
+// addon's rect, so it doesn't really know z-order. good enough for tooltips and stacked
+// bag windows. the proper fix is attaching child nodes per slot via KamiToolKit so the
+// game clips them for us; that's a later pass (see BisBuddy for the pattern).
 internal sealed unsafe class InventoryHighlighter
 {
     // Dresser addon (no typed Slots, we walk by NodeId). Probe v1 verified: 50 slot
@@ -121,9 +81,11 @@ internal sealed unsafe class InventoryHighlighter
     private const float OutlineCornerRounding = 3f;
     private const float FillAlpha = 0.35f;
 
-    private static readonly Vector4 DresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1.0f); // green
-    private static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
-    private static readonly Vector4 SetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1.0f); // gold
+    // The legend in the main window draws swatches in these same colors, so they're
+    // internal rather than private.
+    internal static readonly Vector4 DresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1.0f); // green
+    internal static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
+    internal static readonly Vector4 SetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1.0f); // gold
 
     private readonly HashSet<int> dresserToArmoireIcons = [];
     private readonly HashSet<int> outsideToArmoireIcons = [];
@@ -341,7 +303,7 @@ internal sealed unsafe class InventoryHighlighter
         {
             if (addonRect.Name == sourceAddonName) continue;
             // Skip same-family obscurers (host inventory addon over its own child grids).
-            if (sourceFamily != null && sourceFamily.Contains(addonRect.Name)) continue;
+            if (sourceFamily is not null && sourceFamily.Contains(addonRect.Name)) continue;
             if (RectsOverlap(slotTopLeft, slotBottomRight, addonRect.TopLeft, addonRect.BottomRight))
                 return true;
         }

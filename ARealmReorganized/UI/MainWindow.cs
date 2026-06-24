@@ -162,19 +162,24 @@ public sealed class MainWindow : Window, IDisposable
         return resolved;
     }
 
-    // Legend swatch colors match the outline colors drawn by InventoryHighlighter. Keep
-    // these in sync with the constants there.
-    private static readonly Vector4 LegendDresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1f); // green
-    private static readonly Vector4 LegendOutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1f); // blue
-    private static readonly Vector4 LegendSetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1f); // gold
-
     private static void DrawHighlightLegend()
     {
         TextDisabledWrapped("Open your bags / armoury / saddlebag / retainer, slots with these outlines:");
-        ImGui.TextColored(LegendDresserToArmoireColor, "□ in your dresser, can move to the armoire");
-        ImGui.TextColored(LegendOutsideToArmoireColor, "□ in bags / armoury / saddlebag / retainer, can move to the armoire");
-        ImGui.TextColored(LegendSetCompletionColor,    "□ would complete a partial dresser set if put into the dresser");
+        DrawLegendRow(InventoryHighlighter.DresserToArmoireColor, "in your dresser, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in bags / armoury / saddlebag / retainer, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.SetCompletionColor, "would complete a partial dresser set if put into the dresser");
         ImGui.Spacing();
+    }
+
+    private static void DrawLegendRow(Vector4 color, string text)
+    {
+        var swatchSize = ImGui.GetFontSize();
+        var topLeft = ImGui.GetCursorScreenPos();
+        ImGui.GetWindowDrawList().AddRect(
+            topLeft, topLeft + new Vector2(swatchSize, swatchSize), ImGui.GetColorU32(color), 2f, ImDrawFlags.None, 2f);
+        ImGui.Dummy(new Vector2(swatchSize, swatchSize));
+        ImGui.SameLine();
+        TextDisabledWrapped(text);
     }
 
     internal void DrawCabinetUnavailableBanner()
