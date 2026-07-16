@@ -164,9 +164,9 @@ public sealed class MainWindow : Window, IDisposable
 
     private static void DrawHighlightLegend()
     {
-        TextDisabledWrapped("Open your dresser / armoury / saddlebag / retainer, slots with these outlines:");
+        TextDisabledWrapped("Open your dresser / bags / armoury / saddlebag / retainer, slots in these colors:");
         DrawLegendRow(InventoryHighlighter.DresserToArmoireColor, "in your dresser, can move to the armoire");
-        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in armoury / saddlebag / retainer, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in bags / armoury / saddlebag / retainer, can move to the armoire");
         DrawLegendRow(InventoryHighlighter.SetCompletionColor, "would complete a partial dresser set if put into the dresser");
         ImGui.Spacing();
     }

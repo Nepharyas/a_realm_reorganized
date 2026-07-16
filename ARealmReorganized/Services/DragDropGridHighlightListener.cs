@@ -14,7 +14,7 @@ internal abstract unsafe class DragDropGridHighlightListener(
 {
     protected abstract Span<Pointer<AtkComponentDragDrop>> GetSlots(AtkUnitBase* addon);
 
-    protected override void ApplyHighlights(AtkUnitBase* addon)
+    protected override void ApplyHighlights(AtkUnitBase* addon, string addonName)
     {
         foreach (var slotPointer in GetSlots(addon))
         {

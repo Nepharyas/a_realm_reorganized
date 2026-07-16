@@ -20,7 +20,7 @@ internal sealed unsafe class DresserHighlightListener(InventoryHighlighter highl
     // nodes (the slot wrappers we want) start here.
     private const int FirstComponentNodeType = 1000;
 
-    protected override void ApplyHighlights(AtkUnitBase* addon)
+    protected override void ApplyHighlights(AtkUnitBase* addon, string addonName)
     {
         for (var slotIndex = 0; slotIndex < VisibleSlotCount; slotIndex++)
         {

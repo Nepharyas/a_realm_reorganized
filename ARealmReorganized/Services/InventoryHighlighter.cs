@@ -8,16 +8,12 @@ namespace ARealmReorganized.Services;
 // Coordinates the in-game slot highlights. Holds the id sets each scan produces and
 // answers "what color should this slot be" for the per-window listeners that do the
 // actual tinting (see AddonHighlightListener). green = in the dresser, can move to
-// armoire. blue = in armoury/saddlebag/retainer, can move to armoire. gold = would
-// complete a partial dresser set if put in the dresser (gold wins over blue on the
-// same icon).
+// armoire. blue = in bags/armoury/saddlebag/retainer, can move to armoire. gold =
+// would complete a partial dresser set if put in the dresser (gold wins over blue on
+// the same icon).
 //
 // Matching is by icon id, not item id, so NQ/HQ pairs sharing an icon both light up.
 // Fine for glam gear where icons are unique enough.
-//
-// The player's own bags aren't covered yet. Their slot components don't carry the item
-// icon (bags render through the item-order module), so they need the module's sorter to
-// find what each slot shows; that's the next piece on this branch.
 internal sealed class InventoryHighlighter : IDisposable
 {
     // The legend in the main window draws swatches in these same colors, so they're
@@ -39,6 +35,7 @@ internal sealed class InventoryHighlighter : IDisposable
             new ArmouryHighlightListener(this),
             new SaddlebagHighlightListener(this),
             new RetainerHighlightListener(this),
+            new PlayerBagHighlightListener(this),
         ];
     }
 
@@ -71,6 +68,16 @@ internal sealed class InventoryHighlighter : IDisposable
         if (setCompletionIcons.Contains(iconId)) return SetCompletionColor;
         if (outsideToArmoireIcons.Contains(iconId)) return OutsideToArmoireColor;
         return null;
+    }
+
+    // For the player bags, where detection hands us the item rather than the slot's
+    // icon; goes through the item's icon so the matching stays consistent everywhere.
+    internal Vector4? ResolveOutsideColorByItemId(uint itemId)
+    {
+        if (itemId == 0) return null;
+        var row = Service.DataManager.GetExcelSheet<LuminaItem>()?.GetRowOrDefault(itemId);
+        if (row is null) return null;
+        return ResolveOutsideColor((int)row.Value.Icon);
     }
 
     private static void BuildIconSet(HashSet<int> destination, IEnumerable<uint> itemIds)

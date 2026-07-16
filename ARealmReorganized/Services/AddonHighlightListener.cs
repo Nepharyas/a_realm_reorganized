@@ -42,13 +42,13 @@ internal abstract unsafe class AddonHighlightListener : IDisposable
 
     // Walk the window's slots and call SetNodeColor on each, null for slots that
     // shouldn't be highlighted (that's what clears stale marks after a re-scan).
-    protected abstract void ApplyHighlights(AtkUnitBase* addon);
+    protected abstract void ApplyHighlights(AtkUnitBase* addon, string addonName);
 
     private void HandlePreDraw(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
         if (addon == null) return;
-        ApplyHighlights(addon);
+        ApplyHighlights(addon, args.AddonName);
     }
 
     // The addon is being torn down; drop its marks. Any tracked node still belongs to a
