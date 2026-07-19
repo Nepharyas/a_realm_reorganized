@@ -99,6 +99,10 @@ internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
             _ => &((AddonInventoryExpansion*)hostAddon)->AddonControl,
         };
 
+        // While the host is still linking its children (right after opening), the list
+        // isn't safe to walk yet; skip the frame and pick the grids up on the next one.
+        if (!control->IsChildSetupComplete) return;
+
         foreach (var childInfoPointer in control->ChildAddons)
         {
             var childInfo = childInfoPointer.Value;

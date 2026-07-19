@@ -22,8 +22,18 @@ internal abstract unsafe class DragDropGridHighlightListener(
             if (slotComponent == null) continue;
             var ownerNode = (AtkResNode*)((AtkComponentBase*)slotComponent)->OwnerNode;
             if (ownerNode == null) continue;
-            SetNodeColor(ownerNode, Highlighter.ResolveOutsideColor(slotComponent->GetIconId()));
+            SetNodeColor(ownerNode, Highlighter.ResolveOutsideColor(ReadIconId(slotComponent)));
         }
+    }
+
+    // Read the icon id straight off the component instead of calling GetIconId(): the
+    // retainer window draws while its item data is still coming in from the server, and
+    // the native call dereferences the not-yet-initialized icon component during those
+    // frames. A plain field read can be null-guarded.
+    private static int ReadIconId(AtkComponentDragDrop* slotComponent)
+    {
+        var iconComponent = slotComponent->AtkComponentIcon;
+        return iconComponent == null ? 0 : (int)iconComponent->IconId;
     }
 }
 
