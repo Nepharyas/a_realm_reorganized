@@ -16,10 +16,9 @@ namespace ARealmReorganized.Services;
 //
 // Which grids are on screen depends on the inventory layout the player uses. Each
 // layout is a different host window (compact "Inventory" pages one grid via tabs,
-// "InventoryLarge" shows two, "InventoryExpansion" all four), so we hook the hosts'
-// PreDraw and pull their child grid addons from AddonControl. That's only safe from
-// the host's own PreDraw, when the child list is stable; walking it from a plain
-// draw hook crashes.
+// "InventoryLarge" shows two, "InventoryExpansion" all four). The grids are pulled
+// from the host's AddonControl child list, which is only safe to walk during a
+// PreDraw of that family; walking it from a plain draw hook crashes.
 internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
 {
     private const string CompactHostName = "Inventory";
@@ -38,13 +37,9 @@ internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
 
     private static readonly HashSet<string> BagGridNameSet = new(BagGridAddonNames, StringComparer.Ordinal);
 
-    // Grids get registered too: not for drawing (ApplyHighlights skips them), but so
-    // their PreFinalize clears our marks before their nodes are freed. Host and grids
-    // can tear down in any order.
-    private static readonly string[] ListenedAddonNames =
-    [
-        CompactHostName, LargeHostName, ExpandedHostName, .. BagGridAddonNames,
-    ];
+    private static readonly string[] HostAddonNames = [CompactHostName, LargeHostName, ExpandedHostName];
+
+    private static readonly string[] ListenedAddonNames = [.. HostAddonNames, .. BagGridAddonNames];
 
     // Reused between frames to avoid re-allocating; only touched from the main thread.
     private readonly List<(nint Grid, string Name)> bagGrids = [];
@@ -54,14 +49,47 @@ internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
     {
     }
 
+    // Runs for the host AND for each grid. The grids refresh their slot visuals from the
+    // item-order module in their own update, which lands after the host's PreDraw, so a
+    // mark written only on the host's pass gets wiped before the grid draws. Re-applying
+    // on the grid's own PreDraw is what makes the color stick.
     protected override void ApplyHighlights(AtkUnitBase* addon, string addonName)
+    {
+        if (!BagGridNameSet.Contains(addonName))
+        {
+            MarkThroughHost(addon, addonName);
+            return;
+        }
+        var host = FindOpenHost(out var hostName);
+        if (host == null) return;
+        MarkThroughHost(host, hostName);
+    }
+
+    // The layouts keep their host windows around even while closed; the open one is the
+    // one actually drawing its root node.
+    private static AtkUnitBase* FindOpenHost(out string hostName)
+    {
+        foreach (var candidateName in HostAddonNames)
+        {
+            var wrapper = Service.GameGui.GetAddonByName(candidateName, 1);
+            if (wrapper.Address == nint.Zero) continue;
+            var candidate = (AtkUnitBase*)wrapper.Address;
+            if (candidate->RootNode == null || !candidate->RootNode->IsVisible()) continue;
+            hostName = candidateName;
+            return candidate;
+        }
+        hostName = "";
+        return null;
+    }
+
+    private void MarkThroughHost(AtkUnitBase* addon, string addonName)
     {
         var tabIndex = addonName switch
         {
             CompactHostName => ((AddonInventory*)addon)->TabIndex,
             LargeHostName => ((AddonInventoryLarge*)addon)->TabIndex,
             ExpandedHostName => ((AddonInventoryExpansion*)addon)->TabIndex,
-            _ => -1, // a grid addon; the host's pass handles it
+            _ => -1,
         };
         if (tabIndex < 0) return;
 
