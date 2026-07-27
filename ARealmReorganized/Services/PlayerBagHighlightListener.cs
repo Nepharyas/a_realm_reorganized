@@ -25,17 +25,25 @@ internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
     private const string CompactHostName = "Inventory";
     private const string LargeHostName = "InventoryLarge";
     private const string ExpandedHostName = "InventoryExpansion";
-    private const string BagGridNamePrefix = "InventoryGrid";
+
+    // Exact names only. The hosts own more children than the bag grids (crystal grid,
+    // event grids, gil display) and reading one of those as an AddonInventoryGrid is a
+    // crash, so nothing looser than a fixed list gets to decide what we cast.
+    private static readonly string[] BagGridAddonNames =
+    [
+        "InventoryGrid",
+        "InventoryGrid0",  "InventoryGrid1",  "InventoryGrid2",  "InventoryGrid3",
+        "InventoryGrid0E", "InventoryGrid1E", "InventoryGrid2E", "InventoryGrid3E",
+    ];
+
+    private static readonly HashSet<string> BagGridNameSet = new(BagGridAddonNames, StringComparer.Ordinal);
 
     // Grids get registered too: not for drawing (ApplyHighlights skips them), but so
     // their PreFinalize clears our marks before their nodes are freed. Host and grids
     // can tear down in any order.
     private static readonly string[] ListenedAddonNames =
     [
-        CompactHostName, LargeHostName, ExpandedHostName,
-        "InventoryGrid",
-        "InventoryGrid0",  "InventoryGrid1",  "InventoryGrid2",  "InventoryGrid3",
-        "InventoryGrid0E", "InventoryGrid1E", "InventoryGrid2E", "InventoryGrid3E",
+        CompactHostName, LargeHostName, ExpandedHostName, .. BagGridAddonNames,
     ];
 
     // Reused between frames to avoid re-allocating; only touched from the main thread.
@@ -108,7 +116,7 @@ internal sealed unsafe class PlayerBagHighlightListener : AddonHighlightListener
             var childInfo = childInfoPointer.Value;
             if (childInfo == null || childInfo->AtkUnitBase == null) continue;
             var name = childInfo->AtkUnitBase->NameString;
-            if (name == null || !name.StartsWith(BagGridNamePrefix, StringComparison.Ordinal)) continue;
+            if (name == null || !BagGridNameSet.Contains(name)) continue;
             bagGrids.Add(((nint)childInfo->AtkUnitBase, name));
         }
         bagGrids.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
