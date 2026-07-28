@@ -20,9 +20,7 @@ internal abstract unsafe class DragDropGridHighlightListener(
         {
             var slotComponent = slotPointer.Value;
             if (slotComponent == null) continue;
-            var ownerNode = (AtkResNode*)((AtkComponentBase*)slotComponent)->OwnerNode;
-            if (ownerNode == null) continue;
-            SetNodeColor(ownerNode, Highlighter.ResolveOutsideColor(ReadIconId(slotComponent)));
+            SetSlotColor((AtkComponentBase*)slotComponent, Highlighter.ResolveOutsideColor(ReadIconId(slotComponent)));
         }
     }
 

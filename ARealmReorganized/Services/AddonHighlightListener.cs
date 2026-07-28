@@ -56,6 +56,21 @@ internal abstract unsafe class AddonHighlightListener : IDisposable
     // is safe, and afterwards we hold no pointers into the dying window.
     private void HandlePreFinalize(AddonEvent type, AddonArgs args) => ClearMarks();
 
+    // Runs whenever marks are dropped (addon teardown or dispose); listeners that cache
+    // pointers of their own hang their cleanup here.
+    protected virtual void OnMarksCleared()
+    {
+    }
+
+    // Shared plumbing for component-based slots: tint the component's owner node.
+    protected void SetSlotColor(AtkComponentBase* slotComponent, Vector4? color)
+    {
+        if (slotComponent == null) return;
+        var ownerNode = (AtkResNode*)slotComponent->OwnerNode;
+        if (ownerNode == null) return;
+        SetNodeColor(ownerNode, color);
+    }
+
     protected void SetNodeColor(AtkResNode* node, Vector4? color)
     {
         if (color is null)
@@ -71,6 +86,7 @@ internal abstract unsafe class AddonHighlightListener : IDisposable
     {
         foreach (var nodePointer in markedNodes) WriteAddColor((AtkResNode*)nodePointer, Vector4.Zero);
         markedNodes.Clear();
+        OnMarksCleared();
     }
 
     private static void WriteAddColor(AtkResNode* node, Vector4 color)

@@ -12,8 +12,9 @@ namespace ARealmReorganized.Services;
 // would complete a partial dresser set if put in the dresser (gold wins over blue on
 // the same icon).
 //
-// Matching is by icon id, not item id, so NQ/HQ pairs sharing an icon both light up.
-// Fine for glam gear where icons are unique enough.
+// Windows that only expose a slot's icon match by icon id, so NQ/HQ pairs sharing an
+// icon both light up; fine for glam gear where icons are unique enough. The bags know
+// exact item ids and match those directly.
 internal sealed class InventoryHighlighter : IDisposable
 {
     // The legend in the main window draws swatches in these same colors, so they're
@@ -25,6 +26,8 @@ internal sealed class InventoryHighlighter : IDisposable
     private readonly HashSet<int> dresserToArmoireIcons = [];
     private readonly HashSet<int> outsideToArmoireIcons = [];
     private readonly HashSet<int> setCompletionIcons = [];
+    private readonly HashSet<uint> outsideToArmoireItems = [];
+    private readonly HashSet<uint> setCompletionItems = [];
     private readonly List<AddonHighlightListener> listeners;
 
     public InventoryHighlighter()
@@ -49,9 +52,14 @@ internal sealed class InventoryHighlighter : IDisposable
         IEnumerable<uint> outsideToArmoireItemIds,
         IEnumerable<uint> setCompletionItemIds)
     {
+        outsideToArmoireItems.Clear();
+        outsideToArmoireItems.UnionWith(outsideToArmoireItemIds);
+        setCompletionItems.Clear();
+        setCompletionItems.UnionWith(setCompletionItemIds);
+
         BuildIconSet(dresserToArmoireIcons, dresserToArmoireItemIds);
-        BuildIconSet(outsideToArmoireIcons, outsideToArmoireItemIds);
-        BuildIconSet(setCompletionIcons, setCompletionItemIds);
+        BuildIconSet(outsideToArmoireIcons, outsideToArmoireItems);
+        BuildIconSet(setCompletionIcons, setCompletionItems);
     }
 
     internal Vector4? ResolveDresserColor(int iconId)
@@ -70,14 +78,14 @@ internal sealed class InventoryHighlighter : IDisposable
         return null;
     }
 
-    // For the player bags, where detection hands us the item rather than the slot's
-    // icon; goes through the item's icon so the matching stays consistent everywhere.
+    // For the player bags, where detection hands us the exact item. Same precedence as
+    // the icon path.
     internal Vector4? ResolveOutsideColorByItemId(uint itemId)
     {
         if (itemId == 0) return null;
-        var row = Service.DataManager.GetExcelSheet<LuminaItem>()?.GetRowOrDefault(itemId);
-        if (row is null) return null;
-        return ResolveOutsideColor((int)row.Value.Icon);
+        if (setCompletionItems.Contains(itemId)) return SetCompletionColor;
+        if (outsideToArmoireItems.Contains(itemId)) return OutsideToArmoireColor;
+        return null;
     }
 
     private static void BuildIconSet(HashSet<int> destination, IEnumerable<uint> itemIds)
