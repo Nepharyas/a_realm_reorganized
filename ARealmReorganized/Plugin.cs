@@ -49,7 +49,6 @@ public sealed class Plugin : IDalamudPlugin
         });
 
         Service.PluginInterface.UiBuilder.Draw += Windows.Draw;
-        Service.PluginInterface.UiBuilder.Draw += Highlighter.OnDraw;
         Service.PluginInterface.UiBuilder.OpenMainUi += OpenMain;
         Service.PluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
         Service.Framework.Update += OnFrameworkUpdate;
@@ -59,10 +58,10 @@ public sealed class Plugin : IDalamudPlugin
     {
         Service.Framework.Update -= OnFrameworkUpdate;
         Service.PluginInterface.UiBuilder.Draw -= Windows.Draw;
-        Service.PluginInterface.UiBuilder.Draw -= Highlighter.OnDraw;
         Service.PluginInterface.UiBuilder.OpenMainUi -= OpenMain;
         Service.PluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
         Service.CommandManager.RemoveHandler(MainCommand);
+        Highlighter.Dispose();
         Windows.RemoveAllWindows();
         MainWindow.Dispose();
         SettingsWindow.Dispose();
@@ -70,7 +69,6 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OpenMain() => MainWindow.IsOpen = true;
     private void OpenSettings() => SettingsWindow.IsOpen = true;
-
     private void OnCommand(string _, string __) => MainWindow.Toggle();
 
     private void OnFrameworkUpdate(IFramework _)

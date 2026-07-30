@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
 
 namespace ARealmReorganized.UI.Tabs;
@@ -29,21 +31,19 @@ internal sealed class CompressTab
 
         if (ImGui.BeginChild("##setlist", Vector2.Zero))
         {
-            if (completeSets.Count > 0)
-            {
-                MainWindow.TextDisabledWrapped($"Complete sets ({completeSets.Count}):");
-                foreach (var g in completeSets)
-                    ImGui.TextUnformatted($"{g.Name}: {g.Pieces.Count}/{g.TotalPieces} pieces");
-            }
-
-            if (partialSets.Count > 0)
-            {
-                if (completeSets.Count > 0) ImGui.Spacing();
-                MainWindow.TextDisabledWrapped($"Incomplete sets ({partialSets.Count}):");
-                foreach (var g in partialSets)
-                    ImGui.TextUnformatted($"{g.Name}: {g.Pieces.Count}/{g.TotalPieces} pieces");
-            }
+            DrawSetSection("Complete sets", "completesets", completeSets);
+            DrawSetSection("Incomplete sets", "incompletesets", partialSets);
         }
         ImGui.EndChild();
+    }
+
+    private static void DrawSetSection(string label, string sectionId, List<SetGroup> sets)
+    {
+        if (sets.Count == 0) return;
+        var headerLabel = $"{label} ({sets.Count})###{sectionId}";
+        if (!ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        foreach (var g in sets)
+            ImGui.TextUnformatted($"{g.Name}: {g.Pieces.Count}/{g.TotalPieces} pieces");
     }
 }

@@ -164,9 +164,9 @@ public sealed class MainWindow : Window, IDisposable
 
     private static void DrawHighlightLegend()
     {
-        TextDisabledWrapped("Open your dresser / armoury / saddlebag / retainer, slots with these outlines:");
+        TextDisabledWrapped("Open your dresser / bags / armoury / saddlebag / retainer, slots in these colors:");
         DrawLegendRow(InventoryHighlighter.DresserToArmoireColor, "in your dresser, can move to the armoire");
-        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in armoury / saddlebag / retainer, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in bags / armoury / saddlebag / retainer, can move to the armoire");
         DrawLegendRow(InventoryHighlighter.SetCompletionColor, "would complete a partial dresser set if put into the dresser");
         ImGui.Spacing();
     }
@@ -215,18 +215,11 @@ public sealed class MainWindow : Window, IDisposable
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
 
-        // Feed the highlighter three id sets, one per intent.
-        // - dresser→armoire: items already in the dresser that can move to the armoire.
-        // - outside→armoire: armoire-eligible items found in bags / armoury / saddlebag /
-        //   retainer (the "go put these in the dresser or armoire" set).
-        // - set completion: items that would finish a partial dresser set if added.
+        // Everything armoire-eligible sitting outside the dresser drives the blue
+        // highlight; storables still in the dresser and set-completing pieces get theirs
+        // from the other two sets.
         var outsideToArmoire = new HashSet<uint>();
         foreach (var entry in inventoryStorable) outsideToArmoire.Add(entry.ItemId);
-        foreach (var snap in plugin.Config.CachedRetainers.Values)
-            foreach (var cached in snap.Entries)
-                if (plugin.Cabinet.IsStorable(cached.ItemId)) outsideToArmoire.Add(cached.ItemId);
-        var setCompletion = SetCompression.GetMissingPieceItemIds(snapshot);
-        plugin.Highlighter.SetHighlightSets(storableCandidates, outsideToArmoire, setCompletion);
 
         itemNames.Clear();
         var allIds = new HashSet<uint>(storableCandidates);
@@ -234,8 +227,17 @@ public sealed class MainWindow : Window, IDisposable
         foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
         foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
         foreach (var snap in plugin.Config.CachedRetainers.Values)
-            foreach (var cached in snap.Entries) allIds.Add(cached.ItemId);
+        {
+            foreach (var cached in snap.Entries)
+            {
+                allIds.Add(cached.ItemId);
+                if (plugin.Cabinet.IsStorable(cached.ItemId)) outsideToArmoire.Add(cached.ItemId);
+            }
+        }
         foreach (var itemId in allIds) itemNames[itemId] = ItemNames.Resolve(itemId);
+
+        plugin.Highlighter.SetHighlightSets(
+            storableCandidates, outsideToArmoire, SetCompression.GetMissingPieceItemIds(snapshot));
 
         hasScanned = true;
         var scanMsg =
