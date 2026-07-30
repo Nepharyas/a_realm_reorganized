@@ -83,14 +83,18 @@ public sealed class MainWindow : Window, IDisposable
             {
                 TextDisabledWrapped("Press Scan to populate results.");
             }
-            else if (ImGui.BeginTabBar("##arrtabs"))
+            else
             {
-                if (ImGui.BeginTabItem(armoireTab.TabLabel)) { armoireTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(compressTab.TabLabel)) { compressTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(duplicatesTab.TabLabel)) { duplicatesTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(inventoryTab.TabLabel)) { inventoryTab.Draw(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem(retainersTab.TabLabel)) { retainersTab.Draw(); ImGui.EndTabItem(); }
-                ImGui.EndTabBar();
+                DrawHighlightLegend();
+                if (ImGui.BeginTabBar("##arrtabs"))
+                {
+                    if (ImGui.BeginTabItem(armoireTab.TabLabel)) { armoireTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(compressTab.TabLabel)) { compressTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(duplicatesTab.TabLabel)) { duplicatesTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(inventoryTab.TabLabel)) { inventoryTab.Draw(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem(retainersTab.TabLabel)) { retainersTab.Draw(); ImGui.EndTabItem(); }
+                    ImGui.EndTabBar();
+                }
             }
         }
         ImGui.EndChild();
@@ -158,6 +162,26 @@ public sealed class MainWindow : Window, IDisposable
         return resolved;
     }
 
+    private static void DrawHighlightLegend()
+    {
+        TextDisabledWrapped("Open your dresser / armoury / saddlebag / retainer, slots with these outlines:");
+        DrawLegendRow(InventoryHighlighter.DresserToArmoireColor, "in your dresser, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.OutsideToArmoireColor, "in armoury / saddlebag / retainer, can move to the armoire");
+        DrawLegendRow(InventoryHighlighter.SetCompletionColor, "would complete a partial dresser set if put into the dresser");
+        ImGui.Spacing();
+    }
+
+    private static void DrawLegendRow(Vector4 color, string text)
+    {
+        var swatchSize = ImGui.GetFontSize();
+        var topLeft = ImGui.GetCursorScreenPos();
+        ImGui.GetWindowDrawList().AddRect(
+            topLeft, topLeft + new Vector2(swatchSize, swatchSize), ImGui.GetColorU32(color), 2f, ImDrawFlags.None, 2f);
+        ImGui.Dummy(new Vector2(swatchSize, swatchSize));
+        ImGui.SameLine();
+        TextDisabledWrapped(text);
+    }
+
     internal void DrawCabinetUnavailableBanner()
     {
         if (plugin.Cabinet.IsFresh) return;
@@ -190,6 +214,19 @@ public sealed class MainWindow : Window, IDisposable
             entry => plugin.Cabinet.IsStorable(entry.ItemId));
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
+
+        // Feed the highlighter three id sets, one per intent.
+        // - dresser→armoire: items already in the dresser that can move to the armoire.
+        // - outside→armoire: armoire-eligible items found in bags / armoury / saddlebag /
+        //   retainer (the "go put these in the dresser or armoire" set).
+        // - set completion: items that would finish a partial dresser set if added.
+        var outsideToArmoire = new HashSet<uint>();
+        foreach (var entry in inventoryStorable) outsideToArmoire.Add(entry.ItemId);
+        foreach (var snap in plugin.Config.CachedRetainers.Values)
+            foreach (var cached in snap.Entries)
+                if (plugin.Cabinet.IsStorable(cached.ItemId)) outsideToArmoire.Add(cached.ItemId);
+        var setCompletion = SetCompression.GetMissingPieceItemIds(snapshot);
+        plugin.Highlighter.SetHighlightSets(storableCandidates, outsideToArmoire, setCompletion);
 
         itemNames.Clear();
         var allIds = new HashSet<uint>(storableCandidates);

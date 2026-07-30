@@ -33,7 +33,7 @@ internal sealed class CompressTab
             {
                 MainWindow.TextDisabledWrapped($"Complete sets ({completeSets.Count}):");
                 foreach (var g in completeSets)
-                    ImGui.TextUnformatted($"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces");
+                    ImGui.TextUnformatted($"{g.Name}: {g.Pieces.Count}/{g.TotalPieces} pieces");
             }
 
             if (partialSets.Count > 0)
@@ -41,7 +41,7 @@ internal sealed class CompressTab
                 if (completeSets.Count > 0) ImGui.Spacing();
                 MainWindow.TextDisabledWrapped($"Incomplete sets ({partialSets.Count}):");
                 foreach (var g in partialSets)
-                    ImGui.TextUnformatted($"{g.Name} — {g.Pieces.Count}/{g.TotalPieces} pieces");
+                    ImGui.TextUnformatted($"{g.Name}: {g.Pieces.Count}/{g.TotalPieces} pieces");
             }
         }
         ImGui.EndChild();

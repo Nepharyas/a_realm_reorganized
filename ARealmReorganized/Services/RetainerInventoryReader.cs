@@ -6,7 +6,7 @@ namespace ARealmReorganized.Services;
 
 internal static unsafe class RetainerInventoryReader
 {
-    // Retainer bag pages only — five pages of 35 slots each, that's the actual "Inventory"
+    // Retainer bag pages only, five pages of 35 slots each, that's the actual "Inventory"
     // tab in the retainer window. RetainerEquippedItems (gear they're wearing) is excluded so
     // our count matches the game UI and we don't try to move equipped items. RetainerPage6 /
     // RetainerPage7 in the InventoryType enum exist but aren't part of the inventory tab.

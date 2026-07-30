@@ -92,7 +92,7 @@ internal sealed unsafe class RetainerCacheService
         foreach (var retainer in manager->Retainers)
             if (retainer.RetainerId != 0) liveIds.Add(retainer.RetainerId);
 
-        // If RetainerManager hasn't populated yet (e.g. just-logged-in), don't prune — we
+        // If RetainerManager hasn't populated yet (e.g. just-logged-in), don't prune, we
         // can't tell apart "no retainers visible right now" from "retainer was fired".
         if (liveIds.Count == 0) return;
 

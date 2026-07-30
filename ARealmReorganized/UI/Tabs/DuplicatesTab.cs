@@ -39,7 +39,7 @@ internal sealed class DuplicatesTab
             if (duplicates.ArmoireRedundant.Count > 0)
             {
                 MainWindow.TextDisabledWrapped(
-                    $"Already in armoire ({duplicates.ArmoireRedundant.Count}) — undyed copies you can drop:");
+                    $"Already in armoire ({duplicates.ArmoireRedundant.Count}), undyed copies you can drop:");
                 foreach (var d in duplicates.ArmoireRedundant)
                     DrawDuplicateRow(d);
             }
