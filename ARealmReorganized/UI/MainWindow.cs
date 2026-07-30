@@ -22,8 +22,8 @@ public sealed class MainWindow : Window, IDisposable
         new Dictionary<InventorySource, IReadOnlyList<InventoryEntry>>();
     private DuplicateDetection.Result duplicates = new()
     {
-        MultipleCopies = Array.Empty<DresserItem>(),
-        ArmoireRedundant = Array.Empty<DresserItem>(),
+        MultipleCopies = [],
+        ArmoireRedundant = [],
     };
     private readonly Dictionary<uint, string> itemNames = new();
     private bool hasScanned;
@@ -208,9 +208,11 @@ public sealed class MainWindow : Window, IDisposable
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         setGroups = SetCompression.GroupBySeries(snapshot, 2);
-        duplicates = DuplicateDetection.Find(snapshot, plugin.Cabinet);
+        var bagEntries = InventoryReader.ReadAll();
+        duplicates = DuplicateDetection.Find(
+            snapshot, bagEntries, plugin.Config.CachedRetainers, plugin.Cabinet.IsAlreadyStored, ItemKinds.IsGear);
         var grouped = InventoryGrouping.FilterAndGroup(
-            InventoryReader.ReadAll(),
+            bagEntries,
             entry => plugin.Cabinet.IsStorable(entry.ItemId));
         inventoryStorable = grouped.Deduped;
         inventoryBySource = grouped.BySource;
@@ -223,8 +225,8 @@ public sealed class MainWindow : Window, IDisposable
 
         itemNames.Clear();
         var allIds = new HashSet<uint>(storableCandidates);
-        foreach (var dresserItem in duplicates.MultipleCopies) allIds.Add(dresserItem.ItemId);
-        foreach (var dresserItem in duplicates.ArmoireRedundant) allIds.Add(dresserItem.ItemId);
+        foreach (var duplicated in duplicates.MultipleCopies) allIds.Add(duplicated.ItemId);
+        foreach (var duplicated in duplicates.ArmoireRedundant) allIds.Add(duplicated.ItemId);
         foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
         foreach (var snap in plugin.Config.CachedRetainers.Values)
         {

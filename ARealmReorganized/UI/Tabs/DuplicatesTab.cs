@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Numerics;
+using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
@@ -36,34 +38,70 @@ internal sealed class DuplicatesTab
 
         if (ImGui.BeginChild("##dupelist", Vector2.Zero))
         {
-            if (duplicates.ArmoireRedundant.Count > 0)
-            {
-                MainWindow.TextDisabledWrapped(
-                    $"Already in armoire ({duplicates.ArmoireRedundant.Count}), undyed copies you can drop:");
-                foreach (var d in duplicates.ArmoireRedundant)
-                    DrawDuplicateRow(d);
-            }
-
-            if (duplicates.MultipleCopies.Count > 0)
-            {
-                if (duplicates.ArmoireRedundant.Count > 0) ImGui.Spacing();
-                MainWindow.TextDisabledWrapped(
-                    $"Multiple copies in dresser ({duplicates.MultipleCopies.Count}):");
-                foreach (var d in duplicates.MultipleCopies)
-                    DrawDuplicateRow(d);
-            }
+            DrawSection(
+                "Already in the armoire", "armoiredupes", duplicates.ArmoireRedundant,
+                "The armoire keeps one forever; these copies just take up space. Dyed bag or retainer copies may be worth keeping.");
+            DrawSection(
+                "Multiple copies", "multidupes", duplicates.MultipleCopies,
+                "You own these more than once, pick which to keep.");
         }
         ImGui.EndChild();
     }
 
-    private void DrawDuplicateRow(DresserItem d)
+    private void DrawSection(
+        string label, string sectionId, IReadOnlyList<DuplicateDetection.DuplicatedItem> items, string hint)
     {
-        DrawDyeSwatch(d.Stain0, d.SlotIndex * 2);
-        ImGui.SameLine(0, 2);
-        DrawDyeSwatch(d.Stain1, d.SlotIndex * 2 + 1);
-        ImGui.SameLine();
-        ImGui.TextUnformatted(main.ResolveItemName(d.ItemId));
+        if (items.Count == 0) return;
+        if (!ImGui.CollapsingHeader($"{label} ({items.Count})###{sectionId}", ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        MainWindow.TextDisabledWrapped(hint);
+        foreach (var item in items)
+            DrawDuplicateItem(item);
+        ImGui.Spacing();
     }
+
+    private void DrawDuplicateItem(DuplicateDetection.DuplicatedItem item)
+    {
+        // A pair of dye swatches per dresser copy, then the name, then where the rest live.
+        foreach (var dresserCopy in item.DresserCopies)
+        {
+            DrawDyeSwatch(dresserCopy.Stain0, dresserCopy.SlotIndex * 2);
+            ImGui.SameLine(0, 2);
+            DrawDyeSwatch(dresserCopy.Stain1, dresserCopy.SlotIndex * 2 + 1);
+            ImGui.SameLine(0, 6);
+        }
+        ImGui.TextUnformatted(main.ResolveItemName(item.ItemId));
+        ImGui.SameLine();
+        MainWindow.TextDisabledWrapped(DescribeLocations(item));
+    }
+
+    private static string DescribeLocations(DuplicateDetection.DuplicatedItem item)
+    {
+        var parts = new List<string>();
+        if (item.DresserCopies.Count > 0) parts.Add(CountedLabel("dresser", item.DresserCopies.Count));
+        foreach (var (source, count) in item.BagCopies)
+            parts.Add(CountedLabel(SourceLabel(source), count));
+        foreach (var retainerCopy in item.RetainerCopies)
+        {
+            var name = string.IsNullOrEmpty(retainerCopy.RetainerName)
+                ? $"retainer #{retainerCopy.RetainerId}"
+                : retainerCopy.RetainerName;
+            parts.Add(CountedLabel(name, retainerCopy.Count));
+        }
+        if (item.InArmoire) parts.Add("armoire");
+        return string.Join(", ", parts);
+    }
+
+    private static string CountedLabel(string place, int count) =>
+        count == 1 ? place : $"{place} x{count}";
+
+    private static string SourceLabel(InventorySource source) => source switch
+    {
+        InventorySource.Inventory => "bags",
+        InventorySource.Armoury => "armoury",
+        InventorySource.Saddlebag => "saddlebag",
+        _ => "retainer",
+    };
 
     private static void DrawDyeSwatch(byte stainId, int discriminator)
     {

@@ -10,7 +10,7 @@ WIP. Builds, the UI loads, the scans run and report. In-game highlight overlays 
 
 - Scans the Glamour Dresser and lists items that can now live in the 7.5 Armoire instead
 - Detects partial sets (multiple pieces sharing an item series) and complete sets
-- Detects duplicates and shows the dyes on each copy so you know which to drop
+- Detects duplicates across the dresser, armoire, bags, armoury, saddlebag and retainers, with dyes shown so you know which copy to drop
 - Reads your inventory/armoury/saddlebag and retainers, and surfaces what's also armoire-storable from there
 - Caches dresser/armoire/retainer state across sessions
 
