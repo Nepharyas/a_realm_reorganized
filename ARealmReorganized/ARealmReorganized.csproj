@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Authors>Nepharyas</Authors>
-    <Version>0.0.1</Version>
+    <Version>0.1.0</Version>
     <Description>Surfaces Glamour Dresser items eligible for the 7.5 Armoire, plus partial sets and duplicates.</Description>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
