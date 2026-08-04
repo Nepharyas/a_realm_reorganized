@@ -29,4 +29,4 @@ If this plugin saves you time, you can [tip me on Ko-fi](https://ko-fi.com/nepha
 
 ## License
 
-TBD.
+AGPL-3.0. See LICENSE.
