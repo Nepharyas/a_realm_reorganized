@@ -7,7 +7,6 @@ obj/
 *.user
 *.suo
 *.DotSettings.user
-packages.lock.json
 
 # Dalamud packager output
 *.zip
