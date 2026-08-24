@@ -70,7 +70,7 @@ internal sealed unsafe class CabinetService : ICabinetService
 
         if (!loggedFirstLoad)
         {
-            plugin.LogBuffer.Add($"Armoire data loaded ({cache.StoredIds.Count} stored)");
+            Service.Log.Information("Armoire data loaded, {Stored} stored.", cache.StoredIds.Count);
             loggedFirstLoad = true;
         }
     }

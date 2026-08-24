@@ -6,7 +6,6 @@ using ARealmReorganized.Models;
 using ARealmReorganized.Services;
 using ARealmReorganized.UI.Tabs;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 
 namespace ARealmReorganized.UI;
@@ -39,14 +38,6 @@ public sealed class MainWindow : Window, IDisposable
         this.plugin = plugin;
         Size = new Vector2(720, 560);
         SizeCondition = ImGuiCond.FirstUseEver;
-
-        TitleBarButtons.Add(new TitleBarButton
-        {
-            Icon = FontAwesomeIcon.Cog,
-            IconOffset = new Vector2(2, 1),
-            Click = _ => plugin.SettingsWindow.IsOpen = true,
-            ShowTooltip = () => ImGui.SetTooltip("Settings"),
-        });
 
         armoireTab = new ArmoireTab(this);
         compressTab = new CompressTab(this);
@@ -242,12 +233,13 @@ public sealed class MainWindow : Window, IDisposable
             storableCandidates, outsideToArmoire, SetCompression.GetMissingPieceItemIds(snapshot));
 
         hasScanned = true;
-        var scanMsg =
-            $"Scan: {snapshot.Count} dresser items, {storableCandidates.Count} storable, " +
-            $"{setGroups.Count} set groups, " +
-            $"{duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count} duplicates, " +
-            $"{inventoryStorable.Count} from inventory.";
-        Service.Log.Information(scanMsg);
-        plugin.LogBuffer.Add(scanMsg);
+        Service.Log.Debug(
+            "Scan: {DresserItems} dresser items, {Storable} storable, {SetGroups} set groups, " +
+            "{Duplicates} duplicates, {FromInventory} from inventory.",
+            snapshot.Count,
+            storableCandidates.Count,
+            setGroups.Count,
+            duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count,
+            inventoryStorable.Count);
     }
 }

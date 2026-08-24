@@ -16,14 +16,12 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Config { get; }
     public WindowSystem Windows { get; } = new("ARealmReorganized");
     public MainWindow MainWindow { get; }
-    public SettingsWindow SettingsWindow { get; }
 
     public ICabinetService Cabinet { get; }
     public IGlamourDresserService Dresser { get; }
     public ArmoireEligibility Eligibility { get; }
     internal RetainerCacheService Retainers { get; }
     internal InventoryHighlighter Highlighter { get; }
-    public PluginLogBuffer LogBuffer { get; } = new();
 
     public Plugin(IDalamudPluginInterface pi)
     {
@@ -32,16 +30,14 @@ public sealed class Plugin : IDalamudPlugin
         Config = Service.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
         Eligibility = new ArmoireEligibility();
-        LogBuffer.Add($"Armoire-eligible items in current game data: {Eligibility.Count}");
+        Service.Log.Information("Loaded {Count} armoire-eligible items.", Eligibility.Count);
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
         Retainers = new RetainerCacheService(this);
         Highlighter = new InventoryHighlighter();
 
         MainWindow = new MainWindow(this);
-        SettingsWindow = new SettingsWindow(this);
         Windows.AddWindow(MainWindow);
-        Windows.AddWindow(SettingsWindow);
 
         Service.CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
@@ -50,7 +46,6 @@ public sealed class Plugin : IDalamudPlugin
 
         Service.PluginInterface.UiBuilder.Draw += Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi += OpenMain;
-        Service.PluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
         Service.Framework.Update += OnFrameworkUpdate;
     }
 
@@ -59,16 +54,13 @@ public sealed class Plugin : IDalamudPlugin
         Service.Framework.Update -= OnFrameworkUpdate;
         Service.PluginInterface.UiBuilder.Draw -= Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi -= OpenMain;
-        Service.PluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
         Service.CommandManager.RemoveHandler(MainCommand);
         Highlighter.Dispose();
         Windows.RemoveAllWindows();
         MainWindow.Dispose();
-        SettingsWindow.Dispose();
     }
 
     private void OpenMain() => MainWindow.IsOpen = true;
-    private void OpenSettings() => SettingsWindow.IsOpen = true;
     private void OnCommand(string _, string __) => MainWindow.Toggle();
 
     private void OnFrameworkUpdate(IFramework _)
