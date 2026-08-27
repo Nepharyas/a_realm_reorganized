@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
@@ -212,6 +213,9 @@ public sealed class MainWindow : Window, IDisposable
 
     private void RunScan()
     {
+        // The scan runs inside the framework callback, so its cost is a frame stall.
+        // Timed so there's a number to point at rather than a guess.
+        var timer = Stopwatch.StartNew();
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         var sets = SetCompression.Analyze(snapshot, MinPiecesForSet);
@@ -250,11 +254,12 @@ public sealed class MainWindow : Window, IDisposable
         hasScanned = true;
         Service.Log.Debug(
             "Scan: {DresserItems} dresser items, {Storable} storable, {SetGroups} set groups, " +
-            "{Duplicates} duplicates, {FromInventory} from inventory.",
+            "{Duplicates} duplicates, {FromInventory} from inventory, took {ElapsedMs}ms.",
             snapshot.Count,
             storableCandidates.Count,
             setGroups.Count,
             duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count,
-            inventoryStorable.Count);
+            inventoryStorable.Count,
+            timer.ElapsedMilliseconds);
     }
 }
