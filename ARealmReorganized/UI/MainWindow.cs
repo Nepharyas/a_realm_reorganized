@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
@@ -142,6 +143,10 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopStyleColor();
     }
 
+    // Sets with a single piece in the dresser aren't worth listing, but they still count
+    // towards the pieces we point at elsewhere.
+    private const int MinPiecesForSet = 2;
+
     // Cap is well above the eligible-set size for any plausible session; if exceeded we just
     // wipe and rebuild on demand rather than tracking LRU.
     private const int ItemNameCacheCap = 5000;
@@ -208,9 +213,13 @@ public sealed class MainWindow : Window, IDisposable
 
     private void RunScan()
     {
+        // The scan runs inside the framework callback, so its cost is a frame stall.
+        // Timed so there's a number to point at rather than a guess.
+        var timer = Stopwatch.StartNew();
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
-        setGroups = SetCompression.GroupBySeries(snapshot, 2);
+        var sets = SetCompression.Analyze(snapshot, MinPiecesForSet);
+        setGroups = sets.Groups;
         var bags = InventoryReader.ReadAll();
         var bagEntries = bags.Entries;
         saddlebagAvailable = bags.SaddlebagAvailable;
@@ -228,32 +237,29 @@ public sealed class MainWindow : Window, IDisposable
         var outsideToArmoire = new HashSet<uint>();
         foreach (var entry in inventoryStorable) outsideToArmoire.Add(entry.ItemId);
 
-        itemNames.Clear();
-        var allIds = new HashSet<uint>(storableCandidates);
-        foreach (var duplicated in duplicates.MultipleCopies) allIds.Add(duplicated.ItemId);
-        foreach (var duplicated in duplicates.ArmoireRedundant) allIds.Add(duplicated.ItemId);
-        foreach (var inventoryEntry in inventoryStorable) allIds.Add(inventoryEntry.ItemId);
         foreach (var snap in plugin.Config.CachedRetainers.Values)
         {
             foreach (var cached in snap.Entries)
             {
-                allIds.Add(cached.ItemId);
                 if (plugin.Cabinet.IsStorable(cached.ItemId)) outsideToArmoire.Add(cached.ItemId);
             }
         }
-        foreach (var itemId in allIds) itemNames[itemId] = ItemNames.Resolve(itemId);
 
-        plugin.Highlighter.SetHighlightSets(
-            storableCandidates, outsideToArmoire, SetCompression.GetMissingPieceItemIds(snapshot));
+        // Names are resolved lazily as rows get drawn, so the scan only has to drop the
+        // ones it might have invalidated.
+        itemNames.Clear();
+
+        plugin.Highlighter.SetHighlightSets(storableCandidates, outsideToArmoire, sets.MissingPieceItemIds);
 
         hasScanned = true;
         Service.Log.Debug(
             "Scan: {DresserItems} dresser items, {Storable} storable, {SetGroups} set groups, " +
-            "{Duplicates} duplicates, {FromInventory} from inventory.",
+            "{Duplicates} duplicates, {FromInventory} from inventory, took {ElapsedMs}ms.",
             snapshot.Count,
             storableCandidates.Count,
             setGroups.Count,
             duplicates.MultipleCopies.Count + duplicates.ArmoireRedundant.Count,
-            inventoryStorable.Count);
+            inventoryStorable.Count,
+            timer.ElapsedMilliseconds);
     }
 }

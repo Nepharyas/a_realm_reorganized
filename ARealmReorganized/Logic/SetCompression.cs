@@ -6,6 +6,13 @@ namespace ARealmReorganized.Logic;
 
 public static class SetCompression
 {
+    // Groups of dresser pieces belonging to the same set, plus the pieces that would
+    // finish off any set the dresser has only part of. Both come out of one pass over
+    // the set sheet since they need the same per-set matching.
+    public sealed record Analysis(
+        IReadOnlyList<SetGroup> Groups,
+        IReadOnlyList<uint> MissingPieceItemIds);
+
     // The 11 gear slots a set covers, in column order. A RowId of 0 means the set has no
     // piece for that slot.
     private static uint[] SetMemberIds(MirageStoreSetItem setRow) =>
@@ -16,72 +23,49 @@ public static class SetCompression
         setRow.Bracelets.RowId, setRow.Ring.RowId,
     ];
 
-    // Returns the union of itemIds belonging to dresser sets that are partially present,
-    // i.e. for any set with at least one piece in the dresser AND at least one piece missing,
-    // the missing piece itemIds. Used to highlight items elsewhere (inventory/retainer/etc.)
-    // that the player could move into the dresser to complete a set there.
-    public static IReadOnlyList<uint> GetMissingPieceItemIds(IEnumerable<DresserItem> dresserItems)
-    {
-        var setSheet = Service.DataManager.GetExcelSheet<MirageStoreSetItem>();
-        if (setSheet is null) return [];
-
-        var dresserItemIds = new HashSet<uint>();
-        foreach (var dresserItem in dresserItems) dresserItemIds.Add(dresserItem.ItemId);
-
-        var missing = new HashSet<uint>();
-        foreach (var setRow in setSheet)
-        {
-            var memberIds = SetMemberIds(setRow);
-
-            var presentInDresser = 0;
-            var realMembers = 0;
-            foreach (var memberId in memberIds)
-            {
-                if (memberId == 0) continue;
-                realMembers++;
-                if (dresserItemIds.Contains(memberId)) presentInDresser++;
-            }
-            if (presentInDresser == 0 || presentInDresser == realMembers) continue;
-
-            foreach (var memberId in memberIds)
-            {
-                if (memberId == 0) continue;
-                if (!dresserItemIds.Contains(memberId)) missing.Add(memberId);
-            }
-        }
-
-        return [.. missing];
-    }
-
-    public static IReadOnlyList<SetGroup> GroupBySeries(
-        IEnumerable<DresserItem> items,
-        int minPiecesForSet)
+    public static Analysis Analyze(IEnumerable<DresserItem> items, int minPiecesForSet)
     {
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
         var setSheet = Service.DataManager.GetExcelSheet<MirageStoreSetItem>();
-        var result = new List<SetGroup>();
-        if (itemSheet is null || setSheet is null) return result;
+        if (itemSheet is null || setSheet is null) return new Analysis([], []);
 
         var dresserByItemId = new Dictionary<uint, DresserItem>();
-        foreach (var di in items)
+        foreach (var dresserItem in items)
         {
-            if (!dresserByItemId.ContainsKey(di.ItemId))
-                dresserByItemId[di.ItemId] = di;
+            if (!dresserByItemId.ContainsKey(dresserItem.ItemId))
+                dresserByItemId[dresserItem.ItemId] = dresserItem;
         }
+
+        var groups = new List<SetGroup>();
+        var missingPieces = new HashSet<uint>();
 
         foreach (var setRow in setSheet)
         {
             var slotIds = SetMemberIds(setRow);
 
             var matched = new List<DresserItem>();
-            int totalSlots = 0;
+            var totalSlots = 0;
             foreach (var slotId in slotIds)
             {
                 if (slotId == 0) continue;
                 totalSlots++;
-                if (dresserByItemId.TryGetValue(slotId, out var di)) matched.Add(di);
+                if (dresserByItemId.TryGetValue(slotId, out var dresserItem)) matched.Add(dresserItem);
             }
 
+            if (matched.Count == 0) continue;
+
+            // Part of the set is here, so the rest is worth pointing at wherever it sits.
+            // Counted even for sets too small to list below, one piece still hints at a set.
+            if (matched.Count < totalSlots)
+            {
+                foreach (var slotId in slotIds)
+                {
+                    if (slotId == 0) continue;
+                    if (!dresserByItemId.ContainsKey(slotId)) missingPieces.Add(slotId);
+                }
+            }
+
+            // Name resolution is a sheet lookup, so it waits until we know we'll list it.
             if (matched.Count < minPiecesForSet) continue;
 
             var name = $"Set {setRow.RowId}";
@@ -92,7 +76,7 @@ public static class SetCompression
                 if (!string.IsNullOrWhiteSpace(text)) name = text;
             }
 
-            result.Add(new SetGroup
+            groups.Add(new SetGroup
             {
                 SeriesId = setRow.RowId,
                 Name = name,
@@ -101,7 +85,7 @@ public static class SetCompression
             });
         }
 
-        result.Sort((a, b) =>
+        groups.Sort((a, b) =>
         {
             var ratioA = (double)a.Pieces.Count / a.TotalPieces;
             var ratioB = (double)b.Pieces.Count / b.TotalPieces;
@@ -109,6 +93,7 @@ public static class SetCompression
             if (byRatio != 0) return byRatio;
             return b.TotalPieces.CompareTo(a.TotalPieces);
         });
-        return result;
+
+        return new Analysis(groups, [.. missingPieces]);
     }
 }
