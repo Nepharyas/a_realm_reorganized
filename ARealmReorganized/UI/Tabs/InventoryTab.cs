@@ -25,6 +25,7 @@ internal sealed class InventoryTab
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();
+        main.DrawSaddlebagUnavailableBanner();
 
         if (main.InventoryStorable.Count == 0)
         {

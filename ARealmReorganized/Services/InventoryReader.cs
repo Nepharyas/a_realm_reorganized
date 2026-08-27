@@ -6,6 +6,14 @@ namespace ARealmReorganized.Services;
 
 internal static unsafe class InventoryReader
 {
+    // What a scan found, plus whether the saddlebag was actually readable. The game only
+    // keeps saddlebag contents loaded while you can reach it, so in an instance (or before
+    // you have opened it) its containers report empty rather than missing. Without the
+    // flag a scan run in there would quietly claim you own nothing in the saddlebag.
+    public readonly record struct Result(
+        IReadOnlyList<InventoryEntry> Entries,
+        bool SaddlebagAvailable);
+
     private static readonly InventoryType[] MainInventoryBags =
     [
         InventoryType.Inventory1,
@@ -35,28 +43,43 @@ internal static unsafe class InventoryReader
         InventoryType.SaddleBag2,
     ];
 
-    public static IReadOnlyList<InventoryEntry> ReadAll()
+    // Only there for players on a subscription, so these never gate the availability flag.
+    private static readonly InventoryType[] PremiumSaddlebagBags =
+    [
+        InventoryType.PremiumSaddleBag1,
+        InventoryType.PremiumSaddleBag2,
+    ];
+
+    public static Result ReadAll()
     {
         var manager = InventoryManager.Instance();
-        if (manager == null) return [];
+        if (manager == null) return new Result([], false);
 
         var items = new List<InventoryEntry>();
         AppendItemsFrom(manager, MainInventoryBags, InventorySource.Inventory, items);
         AppendItemsFrom(manager, ArmouryBags, InventorySource.Armoury, items);
-        AppendItemsFrom(manager, SaddlebagBags, InventorySource.Saddlebag, items);
-        return items;
+        var saddlebagAvailable = AppendItemsFrom(manager, SaddlebagBags, InventorySource.Saddlebag, items);
+        AppendItemsFrom(manager, PremiumSaddlebagBags, InventorySource.Saddlebag, items);
+        return new Result(items, saddlebagAvailable);
     }
 
-    private static void AppendItemsFrom(
+    // Returns false when any of the containers isn't loaded, meaning what we read from it
+    // is absence of data rather than absence of items.
+    private static bool AppendItemsFrom(
         InventoryManager* manager,
         InventoryType[] bags,
         InventorySource source,
         List<InventoryEntry> output)
     {
+        var allLoaded = true;
         foreach (var bag in bags)
         {
             var container = manager->GetInventoryContainer(bag);
-            if (container == null) continue;
+            if (container == null || !container->IsLoaded)
+            {
+                allLoaded = false;
+                continue;
+            }
             for (int slotIndex = 0; slotIndex < container->Size; slotIndex++)
             {
                 var slot = container->GetInventorySlot(slotIndex);
@@ -64,5 +87,6 @@ internal static unsafe class InventoryReader
                 output.Add(new InventoryEntry(slot->ItemId, source, slot->IsHighQuality()));
             }
         }
+        return allLoaded;
     }
 }
