@@ -14,6 +14,8 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         this.plugin = plugin;
     }
 
+    public bool IsLive => HasLiveData();
+
     public IReadOnlyList<DresserItem> Snapshot()
     {
         if (HasLiveData()) return ReadLive();
@@ -32,26 +34,46 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
 
         if (!HasLiveData()) return;
         var live = ReadLive();
-        var cache = plugin.Config.CachedDresser;
-        cache.Slots.Clear();
-        foreach (var di in live)
+
+        var slots = new List<CachedDresserSlot>(live.Count);
+        foreach (var dresserItem in live)
         {
-            cache.Slots.Add(new CachedDresserSlot
+            slots.Add(new CachedDresserSlot
             {
-                Slot = di.SlotIndex,
-                ItemId = di.ItemId,
-                Stain0 = di.Stain0,
-                Stain1 = di.Stain1,
+                Slot = dresserItem.SlotIndex,
+                ItemId = dresserItem.ItemId,
+                Stain0 = dresserItem.Stain0,
+                Stain1 = dresserItem.Stain1,
             });
         }
+
+        // The game keeps the prism box in memory until you change zone, so this runs long
+        // after the dresser window is shut. Only touch the config when something actually
+        // moved, otherwise every tick rewrites the whole file for nothing.
+        var cache = plugin.Config.CachedDresser;
         cache.RefreshedAt = now;
-        plugin.Config.Save();
+        if (!SlotsEqual(cache.Slots, slots))
+        {
+            cache.Slots = slots;
+            plugin.Config.Save();
+        }
 
         if (!loggedFirstLoad)
         {
             Service.Log.Information("Dresser data loaded, {Items} items.", live.Count);
             loggedFirstLoad = true;
         }
+    }
+
+    private static bool SlotsEqual(List<CachedDresserSlot> a, List<CachedDresserSlot> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (a[i].Slot != b[i].Slot || a[i].ItemId != b[i].ItemId
+                || a[i].Stain0 != b[i].Stain0 || a[i].Stain1 != b[i].Stain1) return false;
+        }
+        return true;
     }
 
     private static bool HasLiveData()

@@ -118,14 +118,22 @@ public sealed class MainWindow : Window, IDisposable
         var dresserCache = plugin.Config.CachedDresser;
         var cabinetCache = plugin.Config.CachedCabinet;
 
-        var dresserMsg = dresserCache.RefreshedAt == DateTime.MinValue
-            ? "dresser: never seen yet"
-            : $"dresser: {Humanize(DateTime.UtcNow - dresserCache.RefreshedAt)} ago ({dresserCache.Slots.Count} items)";
-        var cabinetMsg = cabinetCache.RefreshedAt == DateTime.MinValue
-            ? "armoire: never seen yet"
-            : $"armoire: {Humanize(DateTime.UtcNow - cabinetCache.RefreshedAt)} ago ({cabinetCache.StoredIds.Count} stored)";
+        var dresserMsg = DescribeCache(
+            "dresser", plugin.Dresser.IsLive, dresserCache.RefreshedAt, $"{dresserCache.Slots.Count} items");
+        var cabinetMsg = DescribeCache(
+            "armoire", plugin.Cabinet.IsLive, cabinetCache.RefreshedAt, $"{cabinetCache.StoredIds.Count} stored");
 
         TextDisabledWrapped($"{dresserMsg}    {cabinetMsg}");
+    }
+
+    // While the game still holds the data there's nothing to warn about, so the age only
+    // shows up once we're working from our own saved copy and it might have drifted.
+    private static string DescribeCache(string label, bool isLive, DateTime refreshedAt, string contents)
+    {
+        if (refreshedAt == DateTime.MinValue) return $"{label}: not seen yet";
+        return isLive
+            ? $"{label}: {contents}"
+            : $"{label}: {contents}, cached {Humanize(DateTime.UtcNow - refreshedAt)} ago";
     }
 
     internal static string Humanize(TimeSpan ts)

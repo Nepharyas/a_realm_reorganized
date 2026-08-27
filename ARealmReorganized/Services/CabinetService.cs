@@ -24,6 +24,8 @@ internal sealed unsafe class CabinetService : ICabinetService
     // previous-day cache shouldn't be relied on for "is this item already in the armoire".
     public bool IsFresh => IsCabinetLoaded() || plugin.Config.CachedCabinet.RefreshedAt >= sessionStartedAt;
 
+    public bool IsLive => IsCabinetLoaded();
+
     public bool IsAlreadyStored(uint itemId)
     {
         if (!eligibility.TryGetCabinetId(itemId, out var cabinetId)) return false;
@@ -59,14 +61,21 @@ internal sealed unsafe class CabinetService : ICabinetService
 
         var ui = UIState.Instance();
         if (ui == null || !ui->Cabinet.IsCabinetLoaded()) return;
-        var cache = plugin.Config.CachedCabinet;
-        cache.StoredIds.Clear();
+        var storedIds = new HashSet<uint>();
         foreach (var id in eligibility.AllCabinetIds())
         {
-            if (ui->Cabinet.IsItemInCabinet(id)) cache.StoredIds.Add(id);
+            if (ui->Cabinet.IsItemInCabinet(id)) storedIds.Add(id);
         }
+
+        // The cabinet stays loaded for the rest of the session once opened, so only write
+        // when the stored set actually changed rather than on every tick.
+        var cache = plugin.Config.CachedCabinet;
         cache.RefreshedAt = now;
-        plugin.Config.Save();
+        if (!cache.StoredIds.SetEquals(storedIds))
+        {
+            cache.StoredIds = storedIds;
+            plugin.Config.Save();
+        }
 
         if (!loggedFirstLoad)
         {
