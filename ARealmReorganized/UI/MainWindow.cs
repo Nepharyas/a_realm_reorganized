@@ -185,7 +185,8 @@ public sealed class MainWindow : Window, IDisposable
         if (saddlebagAvailable) return;
         ImGui.PushTextWrapPos();
         ImGui.TextColored(UiColors.Warning,
-            "Your saddlebag wasn't readable when you scanned, which happens in instances. Anything sitting in it is missing from these lists, so re-scan once you can open it again.");
+            "Your saddlebag wasn't readable when you scanned, which happens in instances and until you open it. "
+            + "Anything in it may be missing from the lists below, so open the saddlebag once and scan again.");
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
     }
