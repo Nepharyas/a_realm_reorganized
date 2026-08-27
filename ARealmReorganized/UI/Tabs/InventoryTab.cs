@@ -1,6 +1,7 @@
 using System.Numerics;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace ARealmReorganized.UI.Tabs;
 
@@ -33,12 +34,12 @@ internal sealed class InventoryTab
             return;
         }
 
-        if (ImGui.BeginChild("##inventorylist", Vector2.Zero))
+        using var list = ImRaii.Child("##inventorylist", Vector2.Zero);
+        if (list)
         {
             foreach (var (label, source) in SectionsInDisplayOrder)
                 DrawSection(label, source);
         }
-        ImGui.EndChild();
     }
 
     private void DrawSection(string label, InventorySource source)

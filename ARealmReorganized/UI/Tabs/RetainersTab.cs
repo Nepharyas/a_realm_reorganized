@@ -4,6 +4,7 @@ using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace ARealmReorganized.UI.Tabs;
 
@@ -32,14 +33,14 @@ internal sealed class RetainersTab
             return;
         }
 
-        if (ImGui.BeginChild("##retainerlist", Vector2.Zero))
+        using var list = ImRaii.Child("##retainerlist", Vector2.Zero);
+        if (list)
         {
             var now = DateTime.UtcNow;
             var activeRetainerId = plugin.Retainers.ActiveRetainerId;
             foreach (var (retainerId, snap) in cached)
                 DrawRetainerSection(retainerId, snap, now, retainerId == activeRetainerId);
         }
-        ImGui.EndChild();
     }
 
     private int CountEligibleAcrossRetainers()

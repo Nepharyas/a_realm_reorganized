@@ -1,5 +1,6 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace ARealmReorganized.UI.Tabs;
 
@@ -25,11 +26,11 @@ internal sealed class ArmoireTab
             return;
         }
 
-        if (ImGui.BeginChild("##armoirelist", Vector2.Zero))
+        using var list = ImRaii.Child("##armoirelist", Vector2.Zero);
+        if (list)
         {
             foreach (var id in storable)
                 ImGui.TextUnformatted(main.ResolveItemName(id));
         }
-        ImGui.EndChild();
     }
 }
