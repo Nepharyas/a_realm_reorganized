@@ -25,6 +25,7 @@ public sealed class MainWindow : Window, IDisposable
         ArmoireRedundant = [],
     };
     private readonly Dictionary<uint, string> itemNames = new();
+    private bool saddlebagAvailable = true;
     private bool hasScanned;
 
     private readonly ArmoireTab armoireTab;
@@ -54,6 +55,7 @@ public sealed class MainWindow : Window, IDisposable
     internal IReadOnlyList<InventoryEntry> InventoryStorable => inventoryStorable;
     internal IReadOnlyDictionary<InventorySource, IReadOnlyList<InventoryEntry>> InventoryBySource => inventoryBySource;
     internal DuplicateDetection.Result Duplicates => duplicates;
+    internal bool SaddlebagAvailable => saddlebagAvailable;
 
     public override void Draw()
     {
@@ -173,6 +175,16 @@ public sealed class MainWindow : Window, IDisposable
         TextDisabledWrapped(text);
     }
 
+    internal void DrawSaddlebagUnavailableBanner()
+    {
+        if (saddlebagAvailable) return;
+        ImGui.PushTextWrapPos();
+        ImGui.TextColored(UiColors.Warning,
+            "Your saddlebag wasn't readable when you scanned, which happens in instances. Anything sitting in it is missing from these lists, so re-scan once you can open it again.");
+        ImGui.PopTextWrapPos();
+        ImGui.Spacing();
+    }
+
     internal void DrawCabinetUnavailableBanner()
     {
         if (plugin.Cabinet.IsFresh) return;
@@ -199,7 +211,9 @@ public sealed class MainWindow : Window, IDisposable
         var snapshot = plugin.Dresser.Snapshot();
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         setGroups = SetCompression.GroupBySeries(snapshot, 2);
-        var bagEntries = InventoryReader.ReadAll();
+        var bags = InventoryReader.ReadAll();
+        var bagEntries = bags.Entries;
+        saddlebagAvailable = bags.SaddlebagAvailable;
         duplicates = DuplicateDetection.Find(
             snapshot, bagEntries, plugin.Config.CachedRetainers, plugin.Cabinet.IsAlreadyStored, ItemKinds.IsGear);
         var grouped = InventoryGrouping.FilterAndGroup(

@@ -28,6 +28,7 @@ internal sealed class DuplicatesTab
     public void Draw()
     {
         main.DrawCabinetUnavailableBanner();
+        main.DrawSaddlebagUnavailableBanner();
 
         var duplicates = main.Duplicates;
         if (duplicates.MultipleCopies.Count == 0 && duplicates.ArmoireRedundant.Count == 0)
