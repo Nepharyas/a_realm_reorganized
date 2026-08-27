@@ -3,6 +3,7 @@ using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using Lumina.Excel.Sheets;
 
 namespace ARealmReorganized.UI.Tabs;
@@ -37,7 +38,8 @@ internal sealed class DuplicatesTab
             return;
         }
 
-        if (ImGui.BeginChild("##dupelist", Vector2.Zero))
+        using var list = ImRaii.Child("##dupelist", Vector2.Zero);
+        if (list)
         {
             DrawSection(
                 "Already in the armoire", "armoiredupes", duplicates.ArmoireRedundant,
@@ -46,7 +48,6 @@ internal sealed class DuplicatesTab
                 "Multiple copies", "multidupes", duplicates.MultipleCopies,
                 "You own these more than once, pick which to keep.");
         }
-        ImGui.EndChild();
     }
 
     private void DrawSection(

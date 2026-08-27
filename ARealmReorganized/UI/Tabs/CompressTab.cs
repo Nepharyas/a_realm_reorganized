@@ -3,6 +3,7 @@ using System.Linq;
 using System.Numerics;
 using ARealmReorganized.Models;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace ARealmReorganized.UI.Tabs;
 
@@ -29,12 +30,12 @@ internal sealed class CompressTab
             return;
         }
 
-        if (ImGui.BeginChild("##setlist", Vector2.Zero))
+        using var list = ImRaii.Child("##setlist", Vector2.Zero);
+        if (list)
         {
             DrawSetSection("Complete sets", "completesets", completeSets);
             DrawSetSection("Incomplete sets", "incompletesets", partialSets);
         }
-        ImGui.EndChild();
     }
 
     private static void DrawSetSection(string label, string sectionId, List<SetGroup> sets)

@@ -7,6 +7,7 @@ using ARealmReorganized.Models;
 using ARealmReorganized.Services;
 using ARealmReorganized.UI.Tabs;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 
 namespace ARealmReorganized.UI;
@@ -71,37 +72,45 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.Separator();
 
         var footerHeight = ImGui.GetFrameHeightWithSpacing() + ImGui.GetStyle().ItemSpacing.Y;
-        if (ImGui.BeginChild("##body", new Vector2(0, -footerHeight)))
+        using (var body = ImRaii.Child("##body", new Vector2(0, -footerHeight)))
         {
-            if (!hasScanned)
-            {
-                TextDisabledWrapped("Press Scan to populate results.");
-            }
-            else
-            {
-                DrawHighlightLegend();
-                if (ImGui.BeginTabBar("##arrtabs"))
-                {
-                    if (ImGui.BeginTabItem(armoireTab.TabLabel)) { armoireTab.Draw(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem(compressTab.TabLabel)) { compressTab.Draw(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem(duplicatesTab.TabLabel)) { duplicatesTab.Draw(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem(inventoryTab.TabLabel)) { inventoryTab.Draw(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem(retainersTab.TabLabel)) { retainersTab.Draw(); ImGui.EndTabItem(); }
-                    ImGui.EndTabBar();
-                }
-            }
+            if (body) DrawBody();
         }
-        ImGui.EndChild();
 
         DrawFooter();
+    }
+
+    private void DrawBody()
+    {
+        if (!hasScanned)
+        {
+            TextDisabledWrapped("Press Scan to populate results.");
+            return;
+        }
+
+        DrawHighlightLegend();
+        using var tabs = ImRaii.TabBar("##arrtabs");
+        if (!tabs) return;
+
+        DrawTab(armoireTab.TabLabel, armoireTab.Draw);
+        DrawTab(compressTab.TabLabel, compressTab.Draw);
+        DrawTab(duplicatesTab.TabLabel, duplicatesTab.Draw);
+        DrawTab(inventoryTab.TabLabel, inventoryTab.Draw);
+        DrawTab(retainersTab.TabLabel, retainersTab.Draw);
+    }
+
+    private static void DrawTab(string label, Action draw)
+    {
+        using var tab = ImRaii.TabItem(label);
+        if (tab) draw();
     }
 
     private void DrawFooter()
     {
         ImGui.Separator();
-        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1f, 0.37f, 0.36f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(1f, 0.5f, 0.48f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.85f, 0.3f, 0.3f, 1f));
+        using var kofiColors = ImRaii.PushColor(ImGuiCol.Button, new Vector4(1f, 0.37f, 0.36f, 1f))
+            .Push(ImGuiCol.ButtonHovered, new Vector4(1f, 0.5f, 0.48f, 1f))
+            .Push(ImGuiCol.ButtonActive, new Vector4(0.85f, 0.3f, 0.3f, 1f));
         if (ImGui.SmallButton("♥ Support on Ko-fi"))
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -110,7 +119,6 @@ public sealed class MainWindow : Window, IDisposable
                 UseShellExecute = true,
             });
         }
-        ImGui.PopStyleColor(3);
     }
 
     private void DrawServiceStatus()
@@ -146,9 +154,8 @@ public sealed class MainWindow : Window, IDisposable
 
     internal static void TextDisabledWrapped(string text)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+        using var dimmed = ImRaii.PushColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
         ImGui.TextWrapped(text);
-        ImGui.PopStyleColor();
     }
 
     // Sets with a single piece in the dresser aren't worth listing, but they still count
@@ -191,21 +198,23 @@ public sealed class MainWindow : Window, IDisposable
     internal void DrawSaddlebagUnavailableBanner()
     {
         if (saddlebagAvailable) return;
-        ImGui.PushTextWrapPos();
-        ImGui.TextColored(UiColors.Warning,
-            "Your saddlebag wasn't readable when you scanned, which happens in instances and until you open it. "
-            + "Anything in it may be missing from the lists below, so open the saddlebag once and scan again.");
-        ImGui.PopTextWrapPos();
+        using (ImRaii.TextWrapPos(0f))
+        {
+            ImGui.TextColored(UiColors.Warning,
+                "Your saddlebag wasn't readable when you scanned, which happens in instances and until you open it. "
+                + "Anything in it may be missing from the lists below, so open the saddlebag once and scan again.");
+        }
         ImGui.Spacing();
     }
 
     internal void DrawCabinetUnavailableBanner()
     {
         if (plugin.Cabinet.IsFresh) return;
-        ImGui.PushTextWrapPos();
-        ImGui.TextColored(UiColors.Warning,
-            "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show in the lists below.");
-        ImGui.PopTextWrapPos();
+        using (ImRaii.TextWrapPos(0f))
+        {
+            ImGui.TextColored(UiColors.Warning,
+                "Open the Armoire once this session to load stored-item data. Until then, items already in the armoire may show in the lists below.");
+        }
         ImGui.Spacing();
     }
 
