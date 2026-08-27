@@ -49,7 +49,7 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
 
         if (!loggedFirstLoad)
         {
-            plugin.LogBuffer.Add($"Dresser data loaded ({live.Count} items)");
+            Service.Log.Information("Dresser data loaded, {Items} items.", live.Count);
             loggedFirstLoad = true;
         }
     }
