@@ -1,3 +1,4 @@
+using System;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Services;
 using ARealmReorganized.UI;
@@ -34,7 +35,7 @@ public sealed class Plugin : IDalamudPlugin
         Cabinet = new CabinetService(this, Eligibility);
         Dresser = new GlamourDresserService(this);
         Retainers = new RetainerCacheService(this);
-        Highlighter = new InventoryHighlighter();
+        Highlighter = new InventoryHighlighter(pi);
 
         MainWindow = new MainWindow(this);
         Windows.AddWindow(MainWindow);
@@ -55,9 +56,21 @@ public sealed class Plugin : IDalamudPlugin
         Service.PluginInterface.UiBuilder.Draw -= Windows.Draw;
         Service.PluginInterface.UiBuilder.OpenMainUi -= OpenMain;
         Service.CommandManager.RemoveHandler(MainCommand);
-        Highlighter.Dispose();
+        DisposeOnGameThread(Highlighter);
         Windows.RemoveAllWindows();
         MainWindow.Dispose();
+    }
+
+    // The highlighter owns nodes inside the game's windows, which only the game thread
+    // may free. Unload normally happens there already; this covers the case where it doesn't.
+    private static void DisposeOnGameThread(IDisposable disposable)
+    {
+        if (Service.Framework.IsInFrameworkUpdateThread)
+        {
+            disposable.Dispose();
+            return;
+        }
+        Service.Framework.RunOnFrameworkThread(disposable.Dispose).Wait();
     }
 
     private void OpenMain() => MainWindow.IsOpen = true;
