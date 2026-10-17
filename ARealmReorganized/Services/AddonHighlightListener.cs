@@ -14,7 +14,7 @@ namespace ARealmReorganized.Services;
 //
 // Each highlighted slot gets its own SlotOutline node added to the window. Since it's a
 // node of ours inside the game's own tree, the game handles z-order, clipping and
-// tooltips for us, and the colour never mixes with the icon the way tinting the slot did.
+// tooltips for us, and the color never mixes with the icon the way tinting the slot did.
 internal abstract unsafe class AddonHighlightListener : IDisposable
 {
     // NodeType values below this are primitive nodes (image, text, etc.); component

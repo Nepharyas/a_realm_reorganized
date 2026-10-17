@@ -9,7 +9,7 @@ namespace ARealmReorganized.Services;
 // One highlight ring for one slot. Item icons already come with a soft glow texture for
 // their hover state (IconA_Frame part 16); we draw our own copy of it right next to the
 // game's hidden one, so it sits in the same spot and is clipped the same way, and it never
-// touches the icon underneath. The colour goes on the node itself, so the item's rarity
+// touches the icon underneath. The color goes on the node itself, so the item's rarity
 // background can't bleed into it.
 internal sealed unsafe class SlotOutline : IDisposable
 {
@@ -18,7 +18,7 @@ internal sealed unsafe class SlotOutline : IDisposable
     private const string FrameTexturePath = "ui/uld/IconA_Frame.tex";
     private static readonly Vector2 GlowTextureOrigin = new(240, 0);
 
-    // The game stores multiply colour as a percentage.
+    // The game stores multiply color as a percentage.
     private const float MultiplyScale = 100f;
 
     private readonly SimpleImageNode node;
@@ -47,7 +47,7 @@ internal sealed unsafe class SlotOutline : IDisposable
         }
     }
 
-    // Multiply paints the (near white) glow in the colour.
+    // Multiply paints the (near white) glow in the color.
     public void Show(Vector4 color)
     {
         AtkResNode* resNode = node;
