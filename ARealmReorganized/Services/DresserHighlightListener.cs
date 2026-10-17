@@ -16,23 +16,23 @@ internal sealed unsafe class DresserHighlightListener(InventoryHighlighter highl
     private const int VisibleSlotCount = 50;
     private const uint SlotIconImageInnerNodeId = 13;
 
-    // NodeType values below this are primitive nodes (image, text, etc.); component
-    // nodes (the slot wrappers we want) start here.
-    private const int FirstComponentNodeType = 1000;
-
     protected override void ApplyHighlights(AtkUnitBase* addon, string addonName)
     {
         for (var slotIndex = 0; slotIndex < VisibleSlotCount; slotIndex++)
         {
-            var slotNode = addon->GetNodeById(FirstSlotNodeId + (uint)slotIndex);
-            if (slotNode == null) continue;
-            if ((int)slotNode->Type < FirstComponentNodeType) continue;
-            var componentNode = (AtkComponentNode*)slotNode;
-            if (componentNode->Component == null) continue;
-
-            var iconId = ReadIconIdFromSlot(componentNode->Component);
-            SetNodeColor(slotNode, Highlighter.ResolveDresserColor((int)iconId));
+            var slotComponent = GetSlotComponent(addon, slotIndex);
+            if (slotComponent == null) continue;
+            var iconId = ReadIconIdFromSlot(slotComponent);
+            SetSlotColor(slotComponent, Highlighter.ResolveDresserColor((int)iconId));
         }
+    }
+
+    private static AtkComponentBase* GetSlotComponent(AtkUnitBase* addon, int slotIndex)
+    {
+        var slotNode = addon->GetNodeById(FirstSlotNodeId + (uint)slotIndex);
+        if (slotNode == null) return null;
+        if ((int)slotNode->Type < FirstComponentNodeType) return null;
+        return ((AtkComponentNode*)slotNode)->Component;
     }
 
     private static uint ReadIconIdFromSlot(AtkComponentBase* slotComponent)

@@ -1,15 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Threading.Tasks;
+using Dalamud.Plugin;
+using KamiToolKit;
 using LuminaItem = Lumina.Excel.Sheets.Item;
 
 namespace ARealmReorganized.Services;
 
 // Coordinates the in-game slot highlights. Holds the id sets each scan produces and
-// answers "what color should this slot be" for the per-window listeners that do the
-// actual tinting (see AddonHighlightListener). green = in the dresser, can move to
-// armoire. blue = in bags/armoury/saddlebag/retainer, can move to armoire. gold =
-// would complete a partial dresser set if put in the dresser (gold wins over blue on
+// answers "what color should this slot be" for the per-window listeners that draw the
+// actual outlines (see AddonHighlightListener). green = in the dresser, can move to
+// armoire. magenta = in bags/armoury/saddlebag/retainer, can move to armoire. gold =
+// would complete a partial dresser set if put in the dresser (gold wins over magenta on
 // the same icon).
 //
 // Windows that only expose a slot's icon match by icon id, so NQ/HQ pairs sharing an
@@ -18,9 +21,10 @@ namespace ARealmReorganized.Services;
 internal sealed class InventoryHighlighter : IDisposable
 {
     // The legend in the main window draws swatches in these same colors, so they're
-    // internal rather than private.
+    // internal rather than private. Magenta for the bags because blue was too hard to
+    // tell apart from the blue rarity background most gear has.
     internal static readonly Vector4 DresserToArmoireColor = new(0.4f, 1.0f, 0.4f, 1.0f); // green
-    internal static readonly Vector4 OutsideToArmoireColor = new(0.3f, 0.6f, 1.0f, 1.0f); // blue
+    internal static readonly Vector4 OutsideToArmoireColor = new(1.0f, 0.25f, 1.0f, 1.0f); // magenta
     internal static readonly Vector4 SetCompletionColor    = new(1.0f, 0.85f, 0.3f, 1.0f); // gold
 
     private readonly HashSet<int> dresserToArmoireIcons = [];
@@ -30,8 +34,19 @@ internal sealed class InventoryHighlighter : IDisposable
     private readonly HashSet<uint> setCompletionItems = [];
     private readonly List<AddonHighlightListener> listeners;
 
-    public InventoryHighlighter()
+    // The outline nodes come from KamiToolKit, which finishes setting itself up a few
+    // frames after load. Until then the listeners draw nothing rather than half-set-up nodes.
+    private readonly Task toolkitSetup;
+
+    internal bool OutlinesReady => toolkitSetup.IsCompletedSuccessfully;
+
+    public InventoryHighlighter(IDalamudPluginInterface pluginInterface)
     {
+        toolkitSetup = KamiToolKitLibrary.InitializeAsync(pluginInterface);
+        toolkitSetup.ContinueWith(
+            task => Service.Log.Error(task.Exception!, "KamiToolKit failed to set up, slot outlines are off."),
+            TaskContinuationOptions.OnlyOnFaulted);
+
         listeners =
         [
             new DresserHighlightListener(this),
@@ -42,9 +57,11 @@ internal sealed class InventoryHighlighter : IDisposable
         ];
     }
 
+    // Must run on the game thread: the listeners free their native nodes here.
     public void Dispose()
     {
         foreach (var listener in listeners) listener.Dispose();
+        KamiToolKitLibrary.Dispose();
     }
 
     public void SetHighlightSets(
