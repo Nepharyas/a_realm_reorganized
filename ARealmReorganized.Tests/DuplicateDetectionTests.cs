@@ -5,8 +5,8 @@ namespace ARealmReorganized.Tests;
 
 public class DuplicateDetectionTests
 {
-    private static DresserItem Dresser(uint itemId, ushort slot, byte stain0 = 0, byte stain1 = 0) =>
-        new(itemId, slot, stain0, stain1);
+    private static DresserItem Dresser(uint itemId, ushort slot, byte stain0 = 0, byte stain1 = 0, uint outfit = 0) =>
+        new(itemId, slot, stain0, stain1, outfit);
 
     private static InventoryEntry Bag(uint itemId, InventorySource source = InventorySource.Inventory, bool isHq = false) =>
         new(itemId, source, isHq);
@@ -95,6 +95,27 @@ public class DuplicateDetectionTests
 
         Assert.Empty(result.ArmoireRedundant);
         Assert.Empty(result.MultipleCopies);
+    }
+
+    [Fact]
+    public void OutfitPiece_AlreadyStored_IsArmoireRedundant()
+    {
+        var result = Find(
+            dresser: [Dresser(1, 0, outfit: 500)],
+            isInArmoire: id => id == 1);
+
+        var item = Assert.Single(result.ArmoireRedundant);
+        Assert.Equal(500u, Assert.Single(item.DresserCopies).OutfitItemId);
+    }
+
+    [Fact]
+    public void OutfitPieceAndLooseCopy_AreMultiple()
+    {
+        var result = Find(dresser: [Dresser(1, 0, outfit: 500), Dresser(1, 3)]);
+
+        var item = Assert.Single(result.MultipleCopies);
+        Assert.Equal(2, item.TotalCopies);
+        Assert.Empty(result.ArmoireRedundant);
     }
 
     [Fact]
