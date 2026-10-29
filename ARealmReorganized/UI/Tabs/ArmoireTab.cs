@@ -30,7 +30,13 @@ internal sealed class ArmoireTab
         if (list)
         {
             foreach (var id in storable)
+            {
                 ImGui.TextUnformatted(main.ResolveItemName(id));
+                var outfitId = main.OutfitOf(id);
+                if (outfitId == 0) continue;
+                ImGui.SameLine();
+                MainWindow.TextDisabledWrapped($"in outfit {main.ResolveItemName(outfitId)}");
+            }
         }
     }
 }

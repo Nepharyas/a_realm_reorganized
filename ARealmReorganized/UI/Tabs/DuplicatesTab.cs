@@ -64,9 +64,11 @@ internal sealed class DuplicatesTab
 
     private void DrawDuplicateItem(DuplicateDetection.DuplicatedItem item)
     {
-        // A pair of dye swatches per dresser copy, then the name, then where the rest live.
+        // A pair of dye swatches per loose dresser copy, then the name, then where the
+        // rest live. Pieces inside an outfit carry no dye, so they're named by outfit instead.
         foreach (var dresserCopy in item.DresserCopies)
         {
+            if (dresserCopy.IsInOutfit) continue;
             DrawDyeSwatch(dresserCopy.Stain0, dresserCopy.SlotIndex * 2);
             ImGui.SameLine(0, 2);
             DrawDyeSwatch(dresserCopy.Stain1, dresserCopy.SlotIndex * 2 + 1);
@@ -77,10 +79,18 @@ internal sealed class DuplicatesTab
         MainWindow.TextDisabledWrapped(DescribeLocations(item));
     }
 
-    private static string DescribeLocations(DuplicateDetection.DuplicatedItem item)
+    private string DescribeLocations(DuplicateDetection.DuplicatedItem item)
     {
         var parts = new List<string>();
-        if (item.DresserCopies.Count > 0) parts.Add(CountedLabel("dresser", item.DresserCopies.Count));
+        var looseDresserCopies = 0;
+        var outfitLabels = new List<string>();
+        foreach (var dresserCopy in item.DresserCopies)
+        {
+            if (dresserCopy.IsInOutfit) outfitLabels.Add($"outfit {main.ResolveItemName(dresserCopy.OutfitItemId)}");
+            else looseDresserCopies++;
+        }
+        if (looseDresserCopies > 0) parts.Add(CountedLabel("dresser", looseDresserCopies));
+        parts.AddRange(outfitLabels);
         foreach (var (source, count) in item.BagCopies)
             parts.Add(CountedLabel(SourceLabel(source), count));
         foreach (var retainerCopy in item.RetainerCopies)
