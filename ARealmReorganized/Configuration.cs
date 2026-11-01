@@ -30,6 +30,7 @@ public sealed class CachedDresserSlot
     public uint ItemId { get; set; }
     public byte Stain0 { get; set; }
     public byte Stain1 { get; set; }
+    public uint OutfitItemId { get; set; }
 }
 
 [Serializable]

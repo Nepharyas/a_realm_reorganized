@@ -4,7 +4,7 @@ Dalamud plugin for FFXIV that helps you clean up the Glamour Dresser, because 80
 
 ## What it does
 
-- Scans the Glamour Dresser and lists items that can now live in the 7.5 Armoire instead
+- Scans the Glamour Dresser and lists items that can now live in the 7.5 Armoire instead, pieces stored inside outfits included
 - Highlights everything in-game with a color per intent: items in the dresser that can move to the armoire, armoire-eligible items sitting in your bags/armoury/saddlebag/retainers, and pieces that would complete a partial dresser set. Works across the dresser, bag, armoury chest, saddlebag and retainer windows, with a color legend in the main window
 - Detects partial sets (multiple pieces sharing an item series) and complete sets
 - Detects duplicates across the dresser, armoire, bags, armoury, saddlebag and retainers, with dyes shown so you know which copy to drop

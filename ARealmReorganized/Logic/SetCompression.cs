@@ -13,16 +13,6 @@ public static class SetCompression
         IReadOnlyList<SetGroup> Groups,
         IReadOnlyList<uint> MissingPieceItemIds);
 
-    // The 11 gear slots a set covers, in column order. A RowId of 0 means the set has no
-    // piece for that slot.
-    private static uint[] SetMemberIds(MirageStoreSetItem setRow) =>
-    [
-        setRow.MainHand.RowId, setRow.OffHand.RowId, setRow.Head.RowId,
-        setRow.Body.RowId, setRow.Hands.RowId, setRow.Legs.RowId,
-        setRow.Feet.RowId, setRow.Earrings.RowId, setRow.Necklace.RowId,
-        setRow.Bracelets.RowId, setRow.Ring.RowId,
-    ];
-
     public static Analysis Analyze(IEnumerable<DresserItem> items, int minPiecesForSet)
     {
         var itemSheet = Service.DataManager.GetExcelSheet<Item>();
@@ -41,7 +31,7 @@ public static class SetCompression
 
         foreach (var setRow in setSheet)
         {
-            var slotIds = SetMemberIds(setRow);
+            var slotIds = OutfitSets.PieceIds(setRow);
 
             var matched = new List<DresserItem>();
             var totalSlots = 0;

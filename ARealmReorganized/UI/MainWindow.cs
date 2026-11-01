@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
@@ -27,6 +28,7 @@ public sealed class MainWindow : Window, IDisposable
         ArmoireRedundant = [],
     };
     private readonly Dictionary<uint, string> itemNames = new();
+    private readonly Dictionary<uint, uint> outfitByPiece = new();
     private bool saddlebagAvailable = true;
     private bool hasScanned;
 
@@ -58,6 +60,9 @@ public sealed class MainWindow : Window, IDisposable
     internal IReadOnlyDictionary<InventorySource, IReadOnlyList<InventoryEntry>> InventoryBySource => inventoryBySource;
     internal DuplicateDetection.Result Duplicates => duplicates;
     internal bool SaddlebagAvailable => saddlebagAvailable;
+
+    // The outfit a dresser piece is folded into, 0 when it sits loose.
+    internal uint OutfitOf(uint itemId) => outfitByPiece.GetValueOrDefault(itemId);
 
     public override void Draw()
     {
@@ -126,8 +131,11 @@ public sealed class MainWindow : Window, IDisposable
         var dresserCache = plugin.Config.CachedDresser;
         var cabinetCache = plugin.Config.CachedCabinet;
 
+        // Counted by slot so it matches the dresser's own counter; the pieces inside an
+        // outfit share its slot.
+        var dresserSlotsUsed = dresserCache.Slots.Select(s => s.Slot).Distinct().Count();
         var dresserMsg = DescribeCache(
-            "dresser", plugin.Dresser.IsLive, dresserCache.RefreshedAt, $"{dresserCache.Slots.Count} items");
+            "dresser", plugin.Dresser.IsLive, dresserCache.RefreshedAt, $"{dresserSlotsUsed} items");
         var cabinetMsg = DescribeCache(
             "armoire", plugin.Cabinet.IsLive, cabinetCache.RefreshedAt, $"{cabinetCache.StoredIds.Count} stored");
 
@@ -235,6 +243,11 @@ public sealed class MainWindow : Window, IDisposable
         // Timed so there's a number to point at rather than a guess.
         var timer = Stopwatch.StartNew();
         var snapshot = plugin.Dresser.Snapshot();
+        outfitByPiece.Clear();
+        foreach (var piece in snapshot)
+        {
+            if (piece.IsInOutfit) outfitByPiece.TryAdd(piece.ItemId, piece.OutfitItemId);
+        }
         storableCandidates = plugin.Cabinet.ListStorable(snapshot);
         var sets = SetCompression.Analyze(snapshot, MinPiecesForSet);
         setGroups = sets.Groups;
@@ -263,11 +276,19 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
 
+        // The dresser shows an outfit as one icon, so a storable piece folded into one
+        // lights up the outfit's slot.
+        var dresserHighlights = new HashSet<uint>(storableCandidates);
+        foreach (var (pieceId, outfitId) in outfitByPiece)
+        {
+            if (dresserHighlights.Contains(pieceId)) dresserHighlights.Add(outfitId);
+        }
+
         // Names are resolved lazily as rows get drawn, so the scan only has to drop the
         // ones it might have invalidated.
         itemNames.Clear();
 
-        plugin.Highlighter.SetHighlightSets(storableCandidates, outsideToArmoire, sets.MissingPieceItemIds);
+        plugin.Highlighter.SetHighlightSets(dresserHighlights, outsideToArmoire, sets.MissingPieceItemIds);
 
         hasScanned = true;
         Service.Log.Debug(

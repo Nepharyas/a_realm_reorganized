@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
@@ -44,6 +45,7 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
                 ItemId = dresserItem.ItemId,
                 Stain0 = dresserItem.Stain0,
                 Stain1 = dresserItem.Stain1,
+                OutfitItemId = dresserItem.OutfitItemId,
             });
         }
 
@@ -71,7 +73,8 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         for (var i = 0; i < a.Count; i++)
         {
             if (a[i].Slot != b[i].Slot || a[i].ItemId != b[i].ItemId
-                || a[i].Stain0 != b[i].Stain0 || a[i].Stain1 != b[i].Stain1) return false;
+                || a[i].Stain0 != b[i].Stain0 || a[i].Stain1 != b[i].Stain1
+                || a[i].OutfitItemId != b[i].OutfitItemId) return false;
         }
         return true;
     }
@@ -97,9 +100,27 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         for (int i = 0; i < ids.Length; i++)
         {
             if (ids[i] == 0) continue;
+            // An outfit sits in one slot under its own item id; what matters to us is
+            // the pieces inside it.
+            if (OutfitSets.TryGetPieceIds(ids[i], out var pieceIds))
+            {
+                AddStoredPieces(result, ids[i], (ushort)i, pieceIds, s0[i], s1[i]);
+                continue;
+            }
             result.Add(new DresserItem(ids[i], (ushort)i, s0[i], s1[i]));
         }
         return result;
+    }
+
+    private static void AddStoredPieces(
+        List<DresserItem> result, uint outfitItemId, ushort slotIndex, uint[] pieceIds, byte stain0, byte stain1)
+    {
+        for (var slot = 0; slot < pieceIds.Length; slot++)
+        {
+            if (pieceIds[slot] == 0) continue;
+            if (!OutfitSets.IsPieceStored(stain0, stain1, slot)) continue;
+            result.Add(new DresserItem(pieceIds[slot], slotIndex, 0, 0, outfitItemId));
+        }
     }
 
     private IReadOnlyList<DresserItem> ReadFromCache()
@@ -109,7 +130,7 @@ internal sealed unsafe class GlamourDresserService : IGlamourDresserService
         foreach (var s in slots)
         {
             if (s.ItemId == 0) continue;
-            result.Add(new DresserItem(s.ItemId, s.Slot, s.Stain0, s.Stain1));
+            result.Add(new DresserItem(s.ItemId, s.Slot, s.Stain0, s.Stain1, s.OutfitItemId));
         }
         return result;
     }
