@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using ARealmReorganized.Logic;
 using ARealmReorganized.Models;
@@ -130,8 +131,11 @@ public sealed class MainWindow : Window, IDisposable
         var dresserCache = plugin.Config.CachedDresser;
         var cabinetCache = plugin.Config.CachedCabinet;
 
+        // Counted by slot so it matches the dresser's own counter; the pieces inside an
+        // outfit share its slot.
+        var dresserSlotsUsed = dresserCache.Slots.Select(s => s.Slot).Distinct().Count();
         var dresserMsg = DescribeCache(
-            "dresser", plugin.Dresser.IsLive, dresserCache.RefreshedAt, $"{dresserCache.Slots.Count} items");
+            "dresser", plugin.Dresser.IsLive, dresserCache.RefreshedAt, $"{dresserSlotsUsed} items");
         var cabinetMsg = DescribeCache(
             "armoire", plugin.Cabinet.IsLive, cabinetCache.RefreshedAt, $"{cabinetCache.StoredIds.Count} stored");
 
